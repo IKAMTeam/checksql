@@ -1,0 +1,11 @@
+.metadata
+.settings
+.project
+.classpath
+*target*
+*rebel.xml
+.idea
+*.iml
+.recommenders
+/.gradle/
+/logs
