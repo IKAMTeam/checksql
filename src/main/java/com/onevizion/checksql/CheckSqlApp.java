@@ -22,7 +22,7 @@ public class CheckSqlApp {
 
     public static final String JDBC_THIN_URL_PREFIX = "jdbc:oracle:thin:@";
 
-    private static final String ARGS_ERROR_MESSAGE = "Expected command line arguments: <owner>/<owner_pwd>@<owner_connect_identifier> <test>/<test_pwd>@<test_connect_identifier>";
+    private static final String ARGS_ERROR_MESSAGE = "Expected command line arguments: <owner>/<owner_pwd>@<owner_connect_identifier> <test>/<test_pwd>@<test_connect_identifier> <version_mode>";
 
     public static void main(String[] args) {
         CheckSqlApp app = new CheckSqlApp();
@@ -35,9 +35,11 @@ public class CheckSqlApp {
         String[] testCnnProps = parseDbCnnStr(args[1]);
         configDataSource((PoolDataSource) ctx.getBean("testDataSource"), testCnnProps, "check-sql_test");
 
+        Long versionMode = Long.valueOf(args[2]);
+
         CheckSqlExecutor executor = ctx.getBean(CheckSqlExecutor.class);
         try {
-            executor.run();
+            executor.run(versionMode);
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }
@@ -89,11 +91,15 @@ public class CheckSqlApp {
     }
 
     private void checkArgsAndThrow(String[] args) throws IllegalArgumentException {
-        if (args.length != 2) {
+        if (args.length != 3) {
             throw new IllegalArgumentException(ARGS_ERROR_MESSAGE);
         }
         parseDbCnnStr(args[0]);
         parseDbCnnStr(args[1]);
+
+        if (!"0".equals(args[2]) && !"1".equals(args[2])) {
+            throw new IllegalArgumentException(ARGS_ERROR_MESSAGE);
+        }
     }
 
     private ApplicationContext configAppContext(String beansXmlClassPath, String[] args) {

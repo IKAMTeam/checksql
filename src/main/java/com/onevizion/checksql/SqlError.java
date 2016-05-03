@@ -13,6 +13,28 @@ public class SqlError {
     private String errMsg;
     private String errType;
     private String originalQuery;
+    
+    public String toShortString() {
+        StringBuilder msg = new StringBuilder(LINE_DELIMITER);
+        msg.append("[");
+        msg.append(tableName);
+        if (sqlColName != null && (!sqlColName.trim().isEmpty())) {
+            msg.append(".");
+            msg.append(sqlColName);
+        }
+        msg.append("][");
+        if (entityIdColName != null && (!entityIdColName.trim().isEmpty())) {
+            msg.append(entityIdColName);
+            msg.append("=");
+            if (entityId != null && (!entityId.trim().isEmpty())) {
+                msg.append(entityId);
+            }
+            msg.append("][");
+        }
+        msg.append(errMsg);
+        msg.append("]");
+        return msg.toString();
+    }
 
     @Override
     public String toString() {

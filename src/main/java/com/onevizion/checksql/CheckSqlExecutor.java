@@ -44,13 +44,11 @@ public class CheckSqlExecutor {
 
     private static final String SET_PID = "call pkg_sec.set_pid(?)";
 
-    private static final String FIND_FIRST_PROGRAM_ID = "select program_id from program where rownum < 2";
-
     private static final String FIND_IMP_DATA_TYPE_PARAM_SQL_PARAM_BY_IMP_DATA_TYPE_ID = "select sql_parameter from imp_data_type_param where imp_data_type_id = ?";
 
-    private static final String FIND_IMP_ENTITY_PARAM_SQL_PARAM_BY_ENTITY_ID = "select sql_parameter from imp_entity_param where imp_entity_id = ?";
-
     private static final String FIND_RULE_PARAM_SQL_PARAM_BY_ENTITY_ID = "select ID_FIELD from rule r join rule_type t on (r.rule_type_id = t.rule_type_id) where r.rule_id = ?";
+
+    private static final String FIND_IMP_ENTITY_PARAM_SQL_PARAM_BY_ENTITY_ID = "select sql_parameter from imp_entity_param where imp_entity_id = ?";
 
     private static final String FIND_PLSQL_ERRORS = "select text from all_errors where name = ? and type = 'PROCEDURE'";
 
@@ -60,45 +58,65 @@ public class CheckSqlExecutor {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    // Query format: select [program_id], <entity_id>, <SQL> from <table>...
-    private static final List<String> SELECT_QUERIES = Collections.unmodifiableList(Arrays.asList(
-            "select program_id, config_field_id, DEFAULT_VALUE_SQL from config_field where DEFAULT_VALUE_SQL is not null",
-            "select program_id, config_field_id, SQL_QUERY from config_field where SQL_QUERY is not null",
-            "select program_id, EXCEL_ORCH_MAPPING_ID, DEFAULT_VALUE_SQL from excel_orch_mapping where DEFAULT_VALUE_SQL is not null",
-            "select program_id, EXCEL_ORCH_MAPPING_ID, SQL_QUERY from excel_orch_mapping where SQL_QUERY is not null",
-            "select grid_page_field_id, cell_renderer_param1 from grid_page_field where cell_renderer_id = 78",
-            "select program_id, IMP_ENTITY_REQ_FIELD_ID, sql_text from imp_entity_req_field where sql_text is not null",
-            "select program_id, notif_id, trackor_sql from notif where trackor_sql is not null",
-            "select program_id, notif_id, user_sql from notif where user_sql is not null",
-            "select program_id, param_program_id, param_sql from param_program where param_sql is not null",
-            "select param_system_id, param_sql from param_system where param_sql is not null",
-            "select program_id, report_lookup_id, lookup_sql from report_lookup",
-            "select program_id, report_run_sql_id, sql_text from report_run_sql",
-            "select program_id, report_sql_id, sql_text from report_sql where sql_text is not null",
-            "select rule_class_param_id, sql_text from rule_class_param where sql_text is not null",
-            "select rule_type_id, template_sql from rule_type where template_sql is not null",
-            "select program_id, tm_setup_id, search_sql from tm_setup where search_sql is not null and length(search_sql) > 0",
-            "select program_id, XITOR_REQ_FIELD_ID, DEFAULT_VALUE_SQL from xitor_req_field where DEFAULT_VALUE_SQL is not null",
-            "select imp_data_type_param_id, sql_text from imp_data_type_param where sql_text is not null",
-            "select program_id, imp_data_map_id, sql_text from imp_data_map where sql_text is not null",
-            "select program_id, imp_entity_id, sql_text from imp_entity where sql_text is not null",
-            "select program_id, rule_class_param_value_id, value_clob from rule_class_param_value where value_clob is not null"));
+    private static final List<String> TABLE_NAMES = Collections
+            .unmodifiableList(Arrays.asList("config_field", "excel_orch_mapping", "imp_entity_req_field", "notif",
+                    "report_lookup", "report_sql", "tm_setup", "xitor_req_field", "imp_data_map", "imp_entity",
+                    "rule_class_param_value", "imp_spec", "rule", "wf_step", "wf_template_step"));
 
-    private static final List<String> PLSQL_BLOCKS = Collections.unmodifiableList(Arrays.asList(
-            "select program_id, imp_data_map_id, sql_text from imp_data_map where sql_text is not null",
-            "select imp_data_type_id, sql_text from imp_data_type where sql_text is not null",
-            "select program_id, imp_entity_id, sql_text from imp_entity where sql_text is not null",
-            "select program_id, imp_spec_id, external_proc from imp_spec where external_proc is not null",
-            "select program_id, rule_id, sql_text from rule where sql_text is not null",
-            "select program_id, rule_class_param_value_id, value_clob from rule_class_param_value where value_clob is not null",
-            "select program_id, wf_step_id, plsql_block from wf_step where plsql_block is not null",
-            "select program_id, wf_template_step_id, plsql_block from wf_template_step where plsql_block is not null"));
+    private static final String FIND_FIRST_PROGRAM_ID_NEW = "select program_id from program where rownum < 2 and program_id <> 0";
+
+    private static final String FIND_FIRST_PROGRAM_ID_OLD = "select program_id from v_program where rownum < 2";
 
     private SqlError sqlError;
 
-    private List<SqlError> sqlErrors = new ArrayList<SqlError>();
+    private List<SqlError> sqlErrors;
 
-    public void run() {
+    private static final List<String> SELECT_QUERIES = Collections.unmodifiableList(Arrays.asList(
+            "select config_field_id, DEFAULT_VALUE_SQL from config_field where DEFAULT_VALUE_SQL is not null",
+            "select config_field_id, SQL_QUERY from config_field where SQL_QUERY is not null and config_field_name <> 'XITOR_CLASS_ID'",
+            "select EXCEL_ORCH_MAPPING_ID, DEFAULT_VALUE_SQL from excel_orch_mapping where DEFAULT_VALUE_SQL is not null",
+            "select EXCEL_ORCH_MAPPING_ID, SQL_QUERY from excel_orch_mapping where SQL_QUERY is not null",
+            // "select grid_page_field_id, cell_renderer_param1 from
+            // grid_page_field where cell_renderer_id = 78",
+            "select IMP_ENTITY_REQ_FIELD_ID, sql_text from imp_entity_req_field where sql_text is not null and length(sql_text) > 0",
+            "select notif_id, trackor_sql from notif where trackor_sql is not null",
+            "select notif_id, user_sql from notif where user_sql is not null",
+            "select report_lookup_id, lookup_sql from report_lookup",
+            "select report_sql_id, sql_text from report_sql where sql_text is not null",
+            // "select rule_class_param_id, sql_text from rule_class_param where
+            // sql_text is not null",
+            // "select rule_type_id, template_sql from rule_type where
+            // template_sql is not null",
+            "select tm_setup_id, search_sql from tm_setup where search_sql is not null and length(search_sql) > 0",
+            "select XITOR_REQ_FIELD_ID, DEFAULT_VALUE_SQL from xitor_req_field where DEFAULT_VALUE_SQL is not null",
+            // "select imp_data_type_param_id, sql_text from imp_data_type_param
+            // where sql_text is not null",
+            "select imp_data_map_id, sql_text from imp_data_map where sql_text is not null and length(sql_text) > 0",
+            "select imp_entity_id, sql_text from imp_entity where sql_text is not null and dbms_lob.getlength(sql_text) > 0",
+            "select v.rule_class_param_value_id, v.value_clob from rule_class_param_value v join rule r on (r.rule_id = v.rule_id) where v.value_clob is not null and r.is_enabled = 1"));
+
+    private static final List<String> PLSQL_BLOCKS = Collections.unmodifiableList(Arrays.asList(
+            "select imp_data_map_id, sql_text from imp_data_map where sql_text is not null and dbms_lob.getlength(sql_text) > 0",
+            // "select imp_data_type_id, sql_text from imp_data_type where
+            // sql_text is not null",
+            "select imp_entity_id, sql_text from imp_entity where sql_text is not null",
+            "select imp_spec_id, external_proc from imp_spec where external_proc is not null",
+            "select rule_id, sql_text from rule where sql_text is not null and is_enabled = 1",
+            "select v.rule_class_param_value_id, v.value_clob from rule_class_param_value v join rule r on (r.rule_id = v.rule_id) where v.value_clob is not null and r.is_enabled = 1",
+            "select wf_step_id, plsql_block from wf_step where plsql_block is not null",
+            "select wf_template_step_id, plsql_block from wf_template_step where plsql_block is not null"));
+
+    private Long versionMode;
+
+    public CheckSqlExecutor() {
+        super();
+
+        sqlErrors = new ArrayList<SqlError>();
+    }
+
+    public void run(Long versionMode) {
+        this.versionMode = versionMode;
+
         logger.info("SQL Checker is started");
         executeQueries(SELECT_QUERIES);
         testPlsql(PLSQL_BLOCKS);
@@ -110,6 +128,15 @@ public class CheckSqlExecutor {
         if (sqlErrors.isEmpty()) {
             return;
         }
+
+        logTableStats();
+
+        for (SqlError err : sqlErrors) {
+            logger.warn(err.toString());
+        }
+    }
+
+    private void logTableStats() {
         SortedMap<String, Integer> tableStats = new TreeMap<String, Integer>(new Comparator<String>() {
 
             @Override
@@ -118,17 +145,17 @@ public class CheckSqlExecutor {
             }
 
         });
+
+        for (String tableName : TABLE_NAMES) {
+            tableStats.put(tableName, 0);
+        }
+
         for (SqlError err : sqlErrors) {
             if (StringUtils.isBlank(err.getTableName())) {
                 continue;
             }
             String tableName = new String(err.getTableName()).toLowerCase();
-            Integer tableCnt;
-            if (tableStats.containsKey(tableName)) {
-                tableCnt = tableStats.get(tableName);
-            } else {
-                tableCnt = 0;
-            }
+            Integer tableCnt = tableStats.get(tableName);
             tableCnt++;
             tableStats.put(tableName, tableCnt);
         }
@@ -136,10 +163,6 @@ public class CheckSqlExecutor {
         for (String tableName : tableStats.keySet()) {
             Integer cnt = tableStats.get(tableName);
             logger.info("table=" + tableName + ", err-count=" + cnt);
-        }
-
-        for (SqlError err : sqlErrors) {
-            logger.warn(err.toString());
         }
     }
 
@@ -149,15 +172,8 @@ public class CheckSqlExecutor {
 
             String tableName = SqlParser.getFirstTableName(sql);
             List<String> sqlDataCols = SqlParser.getCols(sql);
-            boolean programSpeficic = sqlDataCols.size() == 3;
-            String entityIdColName = programSpeficic ? sqlDataCols.get(1) : sqlDataCols.get(0);
-
-            String sqlColName;
-            if (programSpeficic) {
-                sqlColName = sqlDataCols.get(2);
-            } else {
-                sqlColName = sqlDataCols.get(1);
-            }
+            String entityIdColName = sqlDataCols.get(0);
+            String sqlColName = sqlDataCols.get(1);
 
             SqlRowSet sqlRowSet = getSqlRowSetData(sql);
             if (sqlRowSet == null) {
@@ -166,28 +182,21 @@ public class CheckSqlExecutor {
                 continue;
             }
 
-            if (!programSpeficic) {
-                setRandomProgramId();
-                if (sqlError != null) {
-                    sqlError.setTableName(tableName);
-                    sqlError.setEntityIdColName(entityIdColName);
-                    sqlError.setSqlColName(sqlColName);
-                    sqlErrors.add(sqlError);
-                    continue;
-                }
+            setRandomProgramId();
+            if (sqlError != null) {
+                sqlError.setTableName(tableName);
+                sqlError.setEntityIdColName(entityIdColName);
+                sqlError.setSqlColName(sqlColName);
+                sqlErrors.add(sqlError);
+                continue;
             }
 
             while (sqlRowSet.next()) {
                 sqlError = null;
 
-                String entityId;
-                if (programSpeficic) {
-                    entityId = sqlRowSet.getString(2);
-                } else {
-                    entityId = sqlRowSet.getString(1);
-                }
+                String entityId = sqlRowSet.getString(1);
 
-                String entitySql = getStringVal(sqlRowSet, (programSpeficic ? 3 : 2));
+                String entitySql = getStringVal(sqlRowSet, 2);
                 if (sqlError != null) {
                     sqlError.setTableName(tableName);
                     sqlError.setEntityIdColName(entityIdColName);
@@ -255,15 +264,9 @@ public class CheckSqlExecutor {
 
             String tableName = SqlParser.getFirstTableName(sql);
             List<String> sqlDataCols = SqlParser.getCols(sql);
-            boolean programSpeficic = sqlDataCols.size() == 3;
-            String entityIdColName = programSpeficic ? sqlDataCols.get(1) : sqlDataCols.get(0);
+            String entityIdColName = sqlDataCols.get(0);
 
-            String sqlColName;
-            if (programSpeficic) {
-                sqlColName = sqlDataCols.get(2);
-            } else {
-                sqlColName = sqlDataCols.get(1);
-            }
+            String sqlColName = sqlDataCols.get(1);
 
             SqlRowSet sqlRowSet = getSqlRowSetData(sql);
             if (sqlRowSet == null) {
@@ -275,14 +278,9 @@ public class CheckSqlExecutor {
             while (sqlRowSet.next()) {
                 sqlError = null;
 
-                String entityId;
-                if (programSpeficic) {
-                    entityId = sqlRowSet.getString(2);
-                } else {
-                    entityId = sqlRowSet.getString(1);
-                }
+                String entityId = sqlRowSet.getString(1);
 
-                String entityBlock = getStringVal(sqlRowSet, (programSpeficic ? 3 : 2));
+                String entityBlock = getStringVal(sqlRowSet, 2);
                 if (sqlError != null) {
                     sqlError.setTableName(tableName);
                     sqlError.setEntityIdColName(entityIdColName);
@@ -407,6 +405,10 @@ public class CheckSqlExecutor {
         newSql = newSql.replaceAll("(?i)" + Pattern.quote(":return_str"), "v_ret_str");
         newSql = newSql.replaceAll("(?i)" + Pattern.quote(":id_num"), "0");
         newSql = newSql.replaceAll("(?i)" + Pattern.quote(":pk"), "0");
+        newSql = newSql.replaceAll("(?i)" + Pattern.quote(":ln"), "0");
+        newSql = newSql.replaceAll("(?i)" + Pattern.quote(":parent_id"), "0");
+        newSql = newSql.replaceAll("(?i)" + Pattern.quote(":child_id"), "0");
+        newSql = newSql.replaceAll("(?i)" + Pattern.quote(":imp_run_id"), "0");
         return newSql;
     }
 
@@ -468,7 +470,12 @@ public class CheckSqlExecutor {
     }
 
     private boolean setRandomProgramId() {
-        Long pid = ownerJdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID, Long.class);
+        Long pid;
+        if (versionMode.equals(1L)) {
+            pid = ownerJdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_NEW, Long.class);
+        } else {
+            pid = ownerJdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_OLD, Long.class);
+        }
         try {
             testJdbcTemplate.update(SET_PID, pid);
         } catch (DataAccessException e1) {
