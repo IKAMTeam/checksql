@@ -322,12 +322,10 @@ public class CheckSqlExecutor {
 
                 String woutBindVarsBlock = replaceBindVars(beginEndStatement, tableName, sqlColName, entityId);
                 String wrappedBlockAsProc = wrapBlockAsProc(woutBindVarsBlock);
-                boolean callInTest2 = false;
                 try {
                     test1JdbcTemplate.update(wrappedBlockAsProc);
                 } catch (DataAccessException e) {
                     if (useSecondTest) {
-                        callInTest2 = true;
                         removeProcInTest2 = true;
                         try {
                             test2JdbcTemplate.update(wrappedBlockAsProc);
@@ -358,21 +356,28 @@ public class CheckSqlExecutor {
                 }
                 isProcCreated = true;
 
-                SqlRowSet procErrSqlRowSet;
-                if (callInTest2) {
-                    procErrSqlRowSet = test2JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
-                } else {
-                    procErrSqlRowSet = test1JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
-                }
-
+                SqlRowSet procErrSqlRowSet = test1JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
                 if (procErrSqlRowSet.next()) {
                     String errMsg = getStringVal(procErrSqlRowSet, 1);
                     if (StringUtils.isNotBlank(errMsg)) {
-                        if (callInTest2) {
-                            sqlError = new SqlError("PLSQL2");
-                        } else {
-                            sqlError = new SqlError("PLSQL1");
+                        procErrSqlRowSet = test2JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
+                        if (procErrSqlRowSet.next()) {
+                            errMsg = getStringVal(procErrSqlRowSet, 1);
+                            if (StringUtils.isNotBlank(errMsg)) {
+                                sqlError = new SqlError("PLSQL2");
+                                sqlError.setTableName(tableName);
+                                sqlError.setEntityIdColName(entityIdColName);
+                                sqlError.setSqlColName(sqlColName);
+                                sqlError.setEntityId(entityId);
+                                sqlError.setErrMsg(errMsg);
+                                sqlError.setQuery(wrappedBlockAsProc);
+                                sqlError.setOriginalQuery(entityBlock);
+                                sqlErrors.add(sqlError);
+                                continue;
+                            }
                         }
+                    } else {
+                        sqlError = new SqlError("PLSQL1");
                         sqlError.setTableName(tableName);
                         sqlError.setEntityIdColName(entityIdColName);
                         sqlError.setSqlColName(sqlColName);
