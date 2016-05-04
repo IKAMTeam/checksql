@@ -249,7 +249,7 @@ public class SqlParser {
         if (isSelectStatement(sqlText)) {
             TGSqlParser sqlParser = getParser(sqlText);
             TSelectSqlStatement select = (TSelectSqlStatement) sqlParser.sqlstatements.get(0);
-            if (select.tables.size() == 1) {
+            if (select.tables.size() > 0) {
                 return select.tables.getTable(0).getName();
             } else {
                 return null;
