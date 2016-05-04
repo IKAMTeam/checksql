@@ -22,24 +22,29 @@ public class CheckSqlApp {
 
     public static final String JDBC_THIN_URL_PREFIX = "jdbc:oracle:thin:@";
 
-    private static final String ARGS_ERROR_MESSAGE = "Expected command line arguments: <owner>/<owner_pwd>@<owner_connect_identifier> <test>/<test_pwd>@<test_connect_identifier> <version_mode>";
+    private static final String ARGS_ERROR_MESSAGE = "Expected command line arguments: <version_mode> <owner>/<owner_pwd>@<owner_connect_identifier> <test1>/<test1_pwd>@<test1_connect_identifier> [<test2>/<test2_pwd>@<test2_connect_identifier>]";
 
     public static void main(String[] args) {
         CheckSqlApp app = new CheckSqlApp();
 
         ApplicationContext ctx = app.getAppContext("com/onevizion/checksql/beans.xml", args);
 
-        String[] ownerCnnProps = parseDbCnnStr(args[0]);
+        Long versionMode = Long.valueOf(args[0]);
+        
+        String[] ownerCnnProps = parseDbCnnStr(args[1]);
         configDataSource((PoolDataSource) ctx.getBean("ownerDataSource"), ownerCnnProps, "check-sql_owner");
 
-        String[] testCnnProps = parseDbCnnStr(args[1]);
-        configDataSource((PoolDataSource) ctx.getBean("testDataSource"), testCnnProps, "check-sql_test");
+        String[] test1CnnProps = parseDbCnnStr(args[2]);
+        configDataSource((PoolDataSource) ctx.getBean("test1DataSource"), test1CnnProps, "check-sql_test1");
 
-        Long versionMode = Long.valueOf(args[2]);
+        if (args.length == 4) {
+            String[] test2CnnProps = parseDbCnnStr(args[3]);
+            configDataSource((PoolDataSource) ctx.getBean("test2DataSource"), test2CnnProps, "check-sql_test2");
+        }
 
         CheckSqlExecutor executor = ctx.getBean(CheckSqlExecutor.class);
         try {
-            executor.run(versionMode);
+            executor.run(versionMode, args.length == 4);
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }
@@ -82,7 +87,7 @@ public class CheckSqlApp {
     }
 
     protected void configLogger(String[] args) {
-        String[] cnnProps = parseDbCnnStr(args[0]);
+        String[] cnnProps = parseDbCnnStr(args[1]);
 
         // System property to be used by logger
         String schema = cnnProps[0] + "." + cnnProps[2].split("@")[1].split("\\.")[0];
@@ -91,19 +96,24 @@ public class CheckSqlApp {
     }
 
     private void checkArgsAndThrow(String[] args) throws IllegalArgumentException {
-        if (args.length != 3) {
+        if (args.length < 3 || args.length > 4) {
             throw new IllegalArgumentException(ARGS_ERROR_MESSAGE);
         }
-        parseDbCnnStr(args[0]);
-        parseDbCnnStr(args[1]);
-
-        if (!"0".equals(args[2]) && !"1".equals(args[2])) {
+        
+        if (!"0".equals(args[0]) && !"1".equals(args[0])) {
             throw new IllegalArgumentException(ARGS_ERROR_MESSAGE);
+        }
+
+        parseDbCnnStr(args[1]);
+        parseDbCnnStr(args[2]);
+
+        if (args.length == 4) {
+            parseDbCnnStr(args[3]);
         }
     }
 
     private ApplicationContext configAppContext(String beansXmlClassPath, String[] args) {
-        String[] cnnProps = parseDbCnnStr(args[0]);
+        String[] cnnProps = parseDbCnnStr(args[1]);
         System.setProperty("username", cnnProps[0]);
         System.setProperty("password", cnnProps[1]);
         System.setProperty("url", cnnProps[2]);

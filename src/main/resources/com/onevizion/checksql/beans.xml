@@ -28,8 +28,8 @@
         <constructor-arg ref="ownerDataSource" />
     </bean>
 
-    <!--============================== JDBC DataSource _TEST ==============================-->
-    <bean id="testDataSource" class="oracle.ucp.jdbc.PoolDataSourceFactory" factory-method="getPoolDataSource">
+    <!--============================== JDBC DataSource _TEST1 ==============================-->
+    <bean id="test1DataSource" class="oracle.ucp.jdbc.PoolDataSourceFactory" factory-method="getPoolDataSource">
         <property name="connectionFactoryClassName" value="oracle.jdbc.pool.OracleDataSource" />
         <property name="connectionPoolName" value="OnevizionPool_check-sql_pkg" />
         <property name="initialPoolSize" value="2" />
@@ -44,13 +44,38 @@
         </property>
     </bean>
     
-    <bean id="testJdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
-        <constructor-arg ref="testDataSource" />
+    <bean id="test1JdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+        <constructor-arg ref="test1DataSource" />
     </bean> 
     
-    <bean id="testNamedParamJdbcTemplate"
+    <bean id="test1NamedParamJdbcTemplate"
         class="org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate">
-        <constructor-arg ref="testDataSource" />
+        <constructor-arg ref="test1DataSource" />
+    </bean>
+    
+    <!--============================== JDBC DataSource _TEST2 ==============================-->
+    <bean id="test2DataSource" class="oracle.ucp.jdbc.PoolDataSourceFactory" factory-method="getPoolDataSource">
+        <property name="connectionFactoryClassName" value="oracle.jdbc.pool.OracleDataSource" />
+        <property name="connectionPoolName" value="OnevizionPool_check-sql_pkg" />
+        <property name="initialPoolSize" value="2" />
+        <property name="minPoolSize" value="2" />
+        <property name="maxPoolSize" value="5" />
+        <property name="inactiveConnectionTimeout" value="0" />
+        <property name="maxStatements" value="0" />
+        <property name="connectionProperties">
+            <props>
+                <prop key="oracle.jdbc.J2EE13Compliant">true</prop>
+            </props>
+        </property>
+    </bean>
+    
+    <bean id="test2JdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+        <constructor-arg ref="test2DataSource" />
+    </bean> 
+    
+    <bean id="test2NamedParamJdbcTemplate"
+        class="org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate">
+        <constructor-arg ref="test2DataSource" />
     </bean>
 
     <tx:annotation-driven />

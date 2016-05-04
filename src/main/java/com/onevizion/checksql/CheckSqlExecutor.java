@@ -36,11 +36,17 @@ public class CheckSqlExecutor {
     @Resource(name = "ownerJdbcTemplate")
     private JdbcTemplate ownerJdbcTemplate;
 
-    @Resource(name = "testJdbcTemplate")
-    private JdbcTemplate testJdbcTemplate;
+    @Resource(name = "test1JdbcTemplate")
+    private JdbcTemplate test1JdbcTemplate;
 
-    @Resource(name = "testNamedParamJdbcTemplate")
-    private NamedParameterJdbcTemplate testNamedParamJdbcTemplate;
+    @Resource(name = "test1NamedParamJdbcTemplate")
+    private NamedParameterJdbcTemplate test1NamedParamJdbcTemplate;
+
+    @Resource(name = "test2JdbcTemplate")
+    private JdbcTemplate test2JdbcTemplate;
+
+    @Resource(name = "test2NamedParamJdbcTemplate")
+    private NamedParameterJdbcTemplate test2NamedParamJdbcTemplate;
 
     private static final String SET_PID = "call pkg_sec.set_pid(?)";
 
@@ -103,10 +109,11 @@ public class CheckSqlExecutor {
             "select imp_spec_id, external_proc from imp_spec where external_proc is not null",
             "select rule_id, sql_text from rule where sql_text is not null and is_enabled = 1",
             "select v.rule_class_param_value_id, v.value_clob from rule_class_param_value v join rule r on (r.rule_id = v.rule_id) where v.value_clob is not null and r.is_enabled = 1",
-            "select wf_step_id, plsql_block from wf_step where plsql_block is not null",
+            "select s.wf_step_id, s.plsql_block from wf_step s join wf_workflow w on (w.wf_workflow_id = s.wf_workflow_id) where s.plsql_block is not null and w.wf_state_id not in (4,5)",
             "select wf_template_step_id, plsql_block from wf_template_step where plsql_block is not null"));
 
     private Long versionMode;
+    private boolean useSecondTest;
 
     public CheckSqlExecutor() {
         super();
@@ -114,8 +121,9 @@ public class CheckSqlExecutor {
         sqlErrors = new ArrayList<SqlError>();
     }
 
-    public void run(Long versionMode) {
+    public void run(Long versionMode, boolean useSecondTest) {
         this.versionMode = versionMode;
+        this.useSecondTest = useSecondTest;
 
         logger.info("SQL Checker is started");
         executeQueries(SELECT_QUERIES);
@@ -259,6 +267,7 @@ public class CheckSqlExecutor {
 
     private void testPlsql(List<String> queries) {
         boolean isProcCreated = false;
+        boolean removeProcInTest2 = false;
         for (String sql : queries) {
             sqlError = null;
 
@@ -313,27 +322,57 @@ public class CheckSqlExecutor {
 
                 String woutBindVarsBlock = replaceBindVars(beginEndStatement, tableName, sqlColName, entityId);
                 String wrappedBlockAsProc = wrapBlockAsProc(woutBindVarsBlock);
+                boolean callInTest2 = false;
                 try {
-                    testJdbcTemplate.update(wrappedBlockAsProc);
+                    test1JdbcTemplate.update(wrappedBlockAsProc);
                 } catch (DataAccessException e) {
-                    sqlError = new SqlError("CREATE-PROC");
-                    sqlError.setTableName(tableName);
-                    sqlError.setEntityIdColName(entityIdColName);
-                    sqlError.setSqlColName(sqlColName);
-                    sqlError.setEntityId(entityId);
-                    sqlError.setErrMsg(e.getMessage());
-                    sqlError.setQuery(wrappedBlockAsProc);
-                    sqlError.setOriginalQuery(entityBlock);
-                    sqlErrors.add(sqlError);
-                    continue;
+                    if (useSecondTest) {
+                        callInTest2 = true;
+                        removeProcInTest2 = true;
+                        try {
+                            test2JdbcTemplate.update(wrappedBlockAsProc);
+                        } catch (DataAccessException e2) {
+                            sqlError = new SqlError("CREATE-PROC2");
+                            sqlError.setTableName(tableName);
+                            sqlError.setEntityIdColName(entityIdColName);
+                            sqlError.setSqlColName(sqlColName);
+                            sqlError.setEntityId(entityId);
+                            sqlError.setErrMsg(e2.getMessage());
+                            sqlError.setQuery(wrappedBlockAsProc);
+                            sqlError.setOriginalQuery(entityBlock);
+                            sqlErrors.add(sqlError);
+                            continue;
+                        }
+                    } else {
+                        sqlError = new SqlError("CREATE-PROC1");
+                        sqlError.setTableName(tableName);
+                        sqlError.setEntityIdColName(entityIdColName);
+                        sqlError.setSqlColName(sqlColName);
+                        sqlError.setEntityId(entityId);
+                        sqlError.setErrMsg(e.getMessage());
+                        sqlError.setQuery(wrappedBlockAsProc);
+                        sqlError.setOriginalQuery(entityBlock);
+                        sqlErrors.add(sqlError);
+                        continue;
+                    }
                 }
                 isProcCreated = true;
 
-                SqlRowSet procErrSqlRowSet = testJdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
+                SqlRowSet procErrSqlRowSet;
+                if (callInTest2) {
+                    procErrSqlRowSet = test2JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
+                } else {
+                    procErrSqlRowSet = test1JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
+                }
+
                 if (procErrSqlRowSet.next()) {
                     String errMsg = getStringVal(procErrSqlRowSet, 1);
                     if (StringUtils.isNotBlank(errMsg)) {
-                        sqlError = new SqlError("PLSQL");
+                        if (callInTest2) {
+                            sqlError = new SqlError("PLSQL2");
+                        } else {
+                            sqlError = new SqlError("PLSQL1");
+                        }
                         sqlError.setTableName(tableName);
                         sqlError.setEntityIdColName(entityIdColName);
                         sqlError.setSqlColName(sqlColName);
@@ -350,10 +389,19 @@ public class CheckSqlExecutor {
 
         if (isProcCreated) {
             try {
-                testJdbcTemplate.update(DROP_PLSQL_PROC);
+                test1JdbcTemplate.update(DROP_PLSQL_PROC);
             } catch (DataAccessException e) {
                 logger.warn(
-                        "[DROP-PROC][" + DROP_PLSQL_PROC + "]: " + e.getMessage() + "\r\n");
+                        "[DROP-PROC1][" + DROP_PLSQL_PROC + "]: " + e.getMessage() + "\r\n");
+            }
+
+            if (removeProcInTest2) {
+                try {
+                    test1JdbcTemplate.update(DROP_PLSQL_PROC);
+                } catch (DataAccessException e) {
+                    logger.warn(
+                            "[DROP-PROC2][" + DROP_PLSQL_PROC + "]: " + e.getMessage() + "\r\n");
+                }
             }
         }
     }
@@ -477,7 +525,7 @@ public class CheckSqlExecutor {
             pid = ownerJdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_OLD, Long.class);
         }
         try {
-            testJdbcTemplate.update(SET_PID, pid);
+            test1JdbcTemplate.update(SET_PID, pid);
         } catch (DataAccessException e1) {
             sqlError = new SqlError("(RND)PKG_SEC.SET_PID");
             sqlError.setErrMsg(e1.getMessage());
@@ -491,11 +539,21 @@ public class CheckSqlExecutor {
         TGSqlParser pareparedSqlParser = SqlParser.getParser(sql);
         Map<String, Object> paramMap = getSqlParamMap(pareparedSqlParser);
         try {
-            testNamedParamJdbcTemplate.queryForRowSet(sql, paramMap);
+            test1NamedParamJdbcTemplate.queryForRowSet(sql, paramMap);
         } catch (DataAccessException e) {
-            sqlError = new SqlError(SqlError.SELECT_ERR_TYPE);
-            sqlError.setErrMsg(e.getMessage());
-            return false;
+            if (this.useSecondTest) {
+                try {
+                    test2NamedParamJdbcTemplate.queryForRowSet(sql, paramMap);
+                } catch (DataAccessException e2) {
+                    sqlError = new SqlError(SqlError.SELECT_ERR_TYPE + "2");
+                    sqlError.setErrMsg(e2.getMessage());
+                    return false;
+                }
+            } else {
+                sqlError = new SqlError(SqlError.SELECT_ERR_TYPE + "1");
+                sqlError.setErrMsg(e.getMessage());
+                return false;
+            }
         }
         return true;
     }
@@ -520,7 +578,7 @@ public class CheckSqlExecutor {
     private boolean setProgramId(SqlRowSet sqlRowSet) {
         Long pid = sqlRowSet.getLong(1);
         try {
-            testJdbcTemplate.update(SET_PID, pid);
+            test1JdbcTemplate.update(SET_PID, pid);
         } catch (DataAccessException e1) {
             sqlError = new SqlError("PKG_SEC.SET_PID");
             sqlError.setErrMsg(e1.getMessage());
