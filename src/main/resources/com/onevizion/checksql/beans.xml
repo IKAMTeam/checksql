@@ -31,7 +31,7 @@
     <!--============================== JDBC DataSource _TEST1 ==============================-->
     <bean id="test1DataSource" class="oracle.ucp.jdbc.PoolDataSourceFactory" factory-method="getPoolDataSource">
         <property name="connectionFactoryClassName" value="oracle.jdbc.pool.OracleDataSource" />
-        <property name="connectionPoolName" value="OnevizionPool_check-sql_pkg" />
+        <property name="connectionPoolName" value="OnevizionPool_check-sql_test1" />
         <property name="initialPoolSize" value="2" />
         <property name="minPoolSize" value="2" />
         <property name="maxPoolSize" value="5" />
@@ -56,8 +56,8 @@
     <!--============================== JDBC DataSource _TEST2 ==============================-->
     <bean id="test2DataSource" class="oracle.ucp.jdbc.PoolDataSourceFactory" factory-method="getPoolDataSource">
         <property name="connectionFactoryClassName" value="oracle.jdbc.pool.OracleDataSource" />
-        <property name="connectionPoolName" value="OnevizionPool_check-sql_pkg" />
-        <property name="initialPoolSize" value="2" />
+        <property name="connectionPoolName" value="OnevizionPool_check-sql_test2" />
+        <property name="initialPoolSize" value="0" />
         <property name="minPoolSize" value="2" />
         <property name="maxPoolSize" value="5" />
         <property name="inactiveConnectionTimeout" value="0" />
