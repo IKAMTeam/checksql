@@ -266,8 +266,8 @@ public class CheckSqlExecutor {
     }
 
     private void testPlsql(List<String> queries) {
-        boolean isProcCreated = false;
-        boolean removeProcInTest2 = false;
+        boolean isProc1Created = false;
+        boolean isProc2Created = false;
         for (String sql : queries) {
             sqlError = null;
 
@@ -324,27 +324,12 @@ public class CheckSqlExecutor {
                 String wrappedBlockAsProc = wrapBlockAsProc(woutBindVarsBlock);
                 try {
                     test1JdbcTemplate.update(wrappedBlockAsProc);
+                    isProc1Created = true;
                 } catch (DataAccessException e) {
-                    sqlError = new SqlError("CREATE-PROC1");
-                    sqlError.setTableName(tableName);
-                    sqlError.setEntityIdColName(entityIdColName);
-                    sqlError.setSqlColName(sqlColName);
-                    sqlError.setEntityId(entityId);
-                    sqlError.setErrMsg(e.getMessage());
-                    sqlError.setQuery(wrappedBlockAsProc);
-                    sqlError.setOriginalQuery(entityBlock);
-                    sqlErrors.add(sqlError);
-                    continue;
-                }
-                isProcCreated = true;
-
-                SqlRowSet procErrSqlRowSet = test1JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
-                if (procErrSqlRowSet.next()) {
-                    String errMsg = getStringVal(procErrSqlRowSet, 1);
-                    if (StringUtils.isNotBlank(errMsg) && useSecondTest) {
-                        removeProcInTest2 = true;
+                    if (useSecondTest) {
                         try {
                             test2JdbcTemplate.update(wrappedBlockAsProc);
+                            isProc2Created = true;
                         } catch (DataAccessException e2) {
                             sqlError = new SqlError("CREATE-PROC2");
                             sqlError.setTableName(tableName);
@@ -357,40 +342,95 @@ public class CheckSqlExecutor {
                             sqlErrors.add(sqlError);
                             continue;
                         }
-
-                        procErrSqlRowSet = test2JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
-                        if (procErrSqlRowSet.next()) {
-                            errMsg = getStringVal(procErrSqlRowSet, 1);
-                            if (StringUtils.isNotBlank(errMsg)) {
-                                sqlError = new SqlError("PLSQL2");
-                                sqlError.setTableName(tableName);
-                                sqlError.setEntityIdColName(entityIdColName);
-                                sqlError.setSqlColName(sqlColName);
-                                sqlError.setEntityId(entityId);
-                                sqlError.setErrMsg(errMsg);
-                                sqlError.setQuery(wrappedBlockAsProc);
-                                sqlError.setOriginalQuery(entityBlock);
-                                sqlErrors.add(sqlError);
-                                continue;
-                            }
-                        }
-                    } else if (StringUtils.isNotBlank(errMsg)) {
-                        sqlError = new SqlError("PLSQL1");
+                    } else {
+                        sqlError = new SqlError("CREATE-PROC1");
                         sqlError.setTableName(tableName);
                         sqlError.setEntityIdColName(entityIdColName);
                         sqlError.setSqlColName(sqlColName);
                         sqlError.setEntityId(entityId);
-                        sqlError.setErrMsg(errMsg);
+                        sqlError.setErrMsg(e.getMessage());
                         sqlError.setQuery(wrappedBlockAsProc);
                         sqlError.setOriginalQuery(entityBlock);
                         sqlErrors.add(sqlError);
                         continue;
                     }
                 }
+
+                if (isProc1Created) {
+                    SqlRowSet procErrSqlRowSet = test1JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
+                    if (procErrSqlRowSet.next()) {
+                        String errMsg = getStringVal(procErrSqlRowSet, 1);
+                        if (StringUtils.isNotBlank(errMsg) && useSecondTest) {
+                            if (!isProc2Created) {
+                                try {
+                                    test2JdbcTemplate.update(wrappedBlockAsProc);
+                                } catch (DataAccessException e2) {
+                                    sqlError = new SqlError("CREATE-PROC2");
+                                    sqlError.setTableName(tableName);
+                                    sqlError.setEntityIdColName(entityIdColName);
+                                    sqlError.setSqlColName(sqlColName);
+                                    sqlError.setEntityId(entityId);
+                                    sqlError.setErrMsg(e2.getMessage());
+                                    sqlError.setQuery(wrappedBlockAsProc);
+                                    sqlError.setOriginalQuery(entityBlock);
+                                    sqlErrors.add(sqlError);
+                                    continue;
+                                }
+                            }
+
+                            procErrSqlRowSet = test2JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
+                            if (procErrSqlRowSet.next()) {
+                                errMsg = getStringVal(procErrSqlRowSet, 1);
+                                if (StringUtils.isNotBlank(errMsg)) {
+                                    sqlError = new SqlError("PLSQL2");
+                                    sqlError.setTableName(tableName);
+                                    sqlError.setEntityIdColName(entityIdColName);
+                                    sqlError.setSqlColName(sqlColName);
+                                    sqlError.setEntityId(entityId);
+                                    sqlError.setErrMsg(errMsg);
+                                    sqlError.setQuery(wrappedBlockAsProc);
+                                    sqlError.setOriginalQuery(entityBlock);
+                                    sqlErrors.add(sqlError);
+                                    continue;
+                                }
+                            }
+                        } else if (StringUtils.isNotBlank(errMsg)) {
+                            sqlError = new SqlError("PLSQL1");
+                            sqlError.setTableName(tableName);
+                            sqlError.setEntityIdColName(entityIdColName);
+                            sqlError.setSqlColName(sqlColName);
+                            sqlError.setEntityId(entityId);
+                            sqlError.setErrMsg(errMsg);
+                            sqlError.setQuery(wrappedBlockAsProc);
+                            sqlError.setOriginalQuery(entityBlock);
+                            sqlErrors.add(sqlError);
+                            continue;
+                        }
+                    }
+                } else if (isProc2Created) {
+                    SqlRowSet procErrSqlRowSet = test2JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
+                    if (procErrSqlRowSet.next()) {
+                        String errMsg = getStringVal(procErrSqlRowSet, 1);
+                        if (StringUtils.isNotBlank(errMsg)) {
+                            sqlError = new SqlError("PLSQL2");
+                            sqlError.setTableName(tableName);
+                            sqlError.setEntityIdColName(entityIdColName);
+                            sqlError.setSqlColName(sqlColName);
+                            sqlError.setEntityId(entityId);
+                            sqlError.setErrMsg(errMsg);
+                            sqlError.setQuery(wrappedBlockAsProc);
+                            sqlError.setOriginalQuery(entityBlock);
+                            sqlErrors.add(sqlError);
+                            continue;
+                        }
+                    }
+                } else {
+                    continue;
+                }
             }
         }
 
-        if (isProcCreated) {
+        if (isProc1Created) {
             try {
                 test1JdbcTemplate.update(DROP_PLSQL_PROC);
             } catch (DataAccessException e) {
@@ -398,13 +438,14 @@ public class CheckSqlExecutor {
                         "[DROP-PROC1][" + DROP_PLSQL_PROC + "]: " + e.getMessage() + "\r\n");
             }
 
-            if (removeProcInTest2) {
-                try {
-                    test1JdbcTemplate.update(DROP_PLSQL_PROC);
-                } catch (DataAccessException e) {
-                    logger.warn(
-                            "[DROP-PROC2][" + DROP_PLSQL_PROC + "]: " + e.getMessage() + "\r\n");
-                }
+        }
+
+        if (isProc2Created) {
+            try {
+                test2JdbcTemplate.update(DROP_PLSQL_PROC);
+            } catch (DataAccessException e) {
+                logger.warn(
+                        "[DROP-PROC2][" + DROP_PLSQL_PROC + "]: " + e.getMessage() + "\r\n");
             }
         }
     }
