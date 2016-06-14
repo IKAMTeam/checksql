@@ -22,7 +22,7 @@ public class CheckSqlApp {
 
     public static final String JDBC_THIN_URL_PREFIX = "jdbc:oracle:thin:@";
 
-    private static final String ARGS_ERROR_MESSAGE = "Expected command line arguments: <version_mode> <owner1>/<owner1_pwd>@<owner1_connect_identifier> <test1>/<test1_pwd>@<test1_connect_identifier> [<owner2>/<owner2_pwd>@<owner2_connect_identifier> <test2>/<test2_pwd>@<test2_connect_identifier>]";
+    private static final String ARGS_ERROR_MESSAGE = "Expected command line arguments: <version_mode> <remote_owner>/<remote_owner_pwd>@<remote_owner_connect_identifier> <remote_user>/<remote_user_pwd>@<remote_user_connect_identifier> [<local_owner>/<local_owner_pwd>@<local_owner_connect_identifier> <local_user>/<local_user_pwd>@<local_user_connect_identifier>]";
 
     public static void main(String[] args) {
         CheckSqlApp app = new CheckSqlApp();
@@ -30,19 +30,23 @@ public class CheckSqlApp {
         ApplicationContext ctx = app.getAppContext("com/onevizion/checksql/beans.xml", args);
 
         Long versionMode = Long.valueOf(args[0]);
-        
+
         String[] ownerCnnProps = parseDbCnnStr(args[1]);
-        configDataSource((PoolDataSource) ctx.getBean("owner1DataSource"), ownerCnnProps, "check-sql_owner1");
+        configDataSource((PoolDataSource) ctx.getBean("owner1DataSource"), ownerCnnProps, "check-sql_owner1", false,
+                true);
 
         String[] test1CnnProps = parseDbCnnStr(args[2]);
-        configDataSource((PoolDataSource) ctx.getBean("test1DataSource"), test1CnnProps, "check-sql_test1");
+        configDataSource((PoolDataSource) ctx.getBean("test1DataSource"), test1CnnProps, "check-sql_test1", false,
+                false);
 
         if (args.length == 5) {
             String[] owner2CnnProps = parseDbCnnStr(args[3]);
-            configDataSource((PoolDataSource) ctx.getBean("owner2DataSource"), owner2CnnProps, "check-sql_owner2");
-            
+            configDataSource((PoolDataSource) ctx.getBean("owner2DataSource"), owner2CnnProps, "check-sql_owner2", true,
+                    true);
+
             String[] test2CnnProps = parseDbCnnStr(args[4]);
-            configDataSource((PoolDataSource) ctx.getBean("test2DataSource"), test2CnnProps, "check-sql_test2");
+            configDataSource((PoolDataSource) ctx.getBean("test2DataSource"), test2CnnProps, "check-sql_test2", true,
+                    false);
         }
 
         CheckSqlExecutor executor = ctx.getBean(CheckSqlExecutor.class);
@@ -102,7 +106,7 @@ public class CheckSqlApp {
         if (args.length < 3 || args.length != 5) {
             throw new IllegalArgumentException(ARGS_ERROR_MESSAGE);
         }
-        
+
         if (!"0".equals(args[0]) && !"1".equals(args[0])) {
             throw new IllegalArgumentException(ARGS_ERROR_MESSAGE);
         }
@@ -127,7 +131,7 @@ public class CheckSqlApp {
     }
 
     protected static void configDataSource(
-            PoolDataSource ds, String[] cnnProps, String programName) {
+            PoolDataSource ds, String[] cnnProps, String programName, boolean isLocal, boolean isOwner) {
         try {
             ds.setUser(cnnProps[0]);
             ds.setPassword(cnnProps[1]);
@@ -140,7 +144,9 @@ public class CheckSqlApp {
             }
             props.setProperty(OracleConnection.CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM, programName);
             ds.setConnectionProperties(props);
-            logger.info("The data source is configured: user=" + ds.getUser() + ", url=" + ds.getURL());
+            logger.info("The data source is configured: " + (isLocal ? (isOwner ? "local_owner=" : "local_user=")
+                    : (isOwner ? "remote_owner=" : "remote_user=")) + ds.getUser()
+                    + ", url=" + ds.getURL());
         } catch (SQLException e) {
             logger.warn("Can't set connection properties", e);
         }

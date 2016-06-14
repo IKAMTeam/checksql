@@ -129,7 +129,7 @@ public class CheckSqlExecutor {
         this.useSecondTest = useSecondTest;
 
         logger.info("SQL Checker is started");
-        executeQueries(SELECT_QUERIES);
+        // executeQueries(SELECT_QUERIES);
         testPlsql(PLSQL_BLOCKS);
         logSqlErrors();
         logger.info("SQL Checker is completed");
@@ -359,47 +359,42 @@ public class CheckSqlExecutor {
                         test2JdbcTemplate.update(wrappedBlockAsProc);
                         isProc2Created = true;
                     } catch (DataAccessException e2) {
-                        try {
-                            test1JdbcTemplate.update(wrappedBlockAsProc);
-                            isProc1Created = true;
-                        } catch (DataAccessException e) {
-                            sqlError = new SqlError("CREATE-PROC1");
-                            sqlError.setTableName(tableName);
-                            sqlError.setEntityIdColName(entityIdColName);
-                            sqlError.setSqlColName(sqlColName);
-                            sqlError.setEntityId(entityId);
-                            sqlError.setErrMsg(e.getMessage());
-                            sqlError.setQuery(wrappedBlockAsProc);
-                            sqlError.setOriginalQuery(entityBlock);
-                            sqlErrors.add(sqlError);
-                            continue;
-                        }
-                    }
-                } else {
-                    try {
-                        test1JdbcTemplate.update(wrappedBlockAsProc);
-                        isProc1Created = true;
-                    } catch (DataAccessException e) {
-                        sqlError = new SqlError("CREATE-PROC1");
+                        sqlError = new SqlError("CREATE-PROC2");
                         sqlError.setTableName(tableName);
                         sqlError.setEntityIdColName(entityIdColName);
                         sqlError.setSqlColName(sqlColName);
                         sqlError.setEntityId(entityId);
-                        sqlError.setErrMsg(e.getMessage());
+                        sqlError.setErrMsg(e2.getMessage());
                         sqlError.setQuery(wrappedBlockAsProc);
                         sqlError.setOriginalQuery(entityBlock);
                         sqlErrors.add(sqlError);
-                        continue;
                     }
                 }
 
-                
+                try {
+                    test1JdbcTemplate.update(wrappedBlockAsProc);
+                    isProc1Created = true;
+                } catch (DataAccessException e) {
+                    sqlError = new SqlError("CREATE-PROC1");
+                    sqlError.setTableName(tableName);
+                    sqlError.setEntityIdColName(entityIdColName);
+                    sqlError.setSqlColName(sqlColName);
+                    sqlError.setEntityId(entityId);
+                    sqlError.setErrMsg(e.getMessage());
+                    sqlError.setQuery(wrappedBlockAsProc);
+                    sqlError.setOriginalQuery(entityBlock);
+                    sqlErrors.add(sqlError);
+                }
+                if (!isProc1Created && !isProc2Created) {
+                    continue;
+                }
+
                 if (useSecondTest && isProc2Created) {
                     SqlRowSet procErrSqlRowSet = test2JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
                     if (procErrSqlRowSet.next()) {
                         String errMsg = getStringVal(procErrSqlRowSet, 1);
                         if (StringUtils.isNotBlank(errMsg)) {
-                               procErrSqlRowSet = test1JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
+                            procErrSqlRowSet = test1JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
                             if (procErrSqlRowSet.next()) {
                                 errMsg = getStringVal(procErrSqlRowSet, 1);
                                 if (StringUtils.isNotBlank(errMsg)) {
