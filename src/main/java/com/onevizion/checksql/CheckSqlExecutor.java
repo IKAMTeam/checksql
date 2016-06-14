@@ -33,8 +33,11 @@ import gudusoft.gsqlparser.TGSqlParser;
 @Component
 public class CheckSqlExecutor {
 
-    @Resource(name = "ownerJdbcTemplate")
-    private JdbcTemplate ownerJdbcTemplate;
+    @Resource(name = "owner1JdbcTemplate")
+    private JdbcTemplate owner1JdbcTemplate;
+
+    @Resource(name = "owner2JdbcTemplate")
+    private JdbcTemplate owner2JdbcTemplate;
 
     @Resource(name = "test1JdbcTemplate")
     private JdbcTemplate test1JdbcTemplate;
@@ -190,13 +193,27 @@ public class CheckSqlExecutor {
                 continue;
             }
 
-            setRandomProgramId();
-            if (sqlError != null) {
-                sqlError.setTableName(tableName);
-                sqlError.setEntityIdColName(entityIdColName);
-                sqlError.setSqlColName(sqlColName);
-                sqlErrors.add(sqlError);
-                continue;
+            if (useSecondTest) {
+                setRandomProgramIdForTest2();
+                if (sqlError != null) {
+                    setRandomProgramIdForTest1();
+                    if (sqlError != null) {
+                        sqlError.setTableName(tableName);
+                        sqlError.setEntityIdColName(entityIdColName);
+                        sqlError.setSqlColName(sqlColName);
+                        sqlErrors.add(sqlError);
+                        continue;
+                    }
+                }
+            } else {
+                setRandomProgramIdForTest1();
+                if (sqlError != null) {
+                    sqlError.setTableName(tableName);
+                    sqlError.setEntityIdColName(entityIdColName);
+                    sqlError.setSqlColName(sqlColName);
+                    sqlErrors.add(sqlError);
+                    continue;
+                }
             }
 
             while (sqlRowSet.next()) {
@@ -236,14 +253,29 @@ public class CheckSqlExecutor {
                         sqlWoutPlaceholder = sqlWoutPlaceholder.replace("?", ":p");
                     }
                     if (sqlDataCols.size() == 3) {
-                        setProgramId(sqlRowSet);
-                        if (sqlError != null) {
-                            sqlError.setTableName(tableName);
-                            sqlError.setEntityIdColName(entityIdColName);
-                            sqlError.setSqlColName(sqlColName);
-                            sqlError.setEntityId(entityId);
-                            sqlErrors.add(sqlError);
-                            continue;
+                        if (useSecondTest) {
+                            setProgramIdForTest2(sqlRowSet);
+                            if (sqlError != null) {
+                                setProgramIdForTest1(sqlRowSet);
+                                if (sqlError != null) {
+                                    sqlError.setTableName(tableName);
+                                    sqlError.setEntityIdColName(entityIdColName);
+                                    sqlError.setSqlColName(sqlColName);
+                                    sqlError.setEntityId(entityId);
+                                    sqlErrors.add(sqlError);
+                                    continue;
+                                }
+                            }
+                        } else {
+                            setProgramIdForTest1(sqlRowSet);
+                            if (sqlError != null) {
+                                sqlError.setTableName(tableName);
+                                sqlError.setEntityIdColName(entityIdColName);
+                                sqlError.setSqlColName(sqlColName);
+                                sqlError.setEntityId(entityId);
+                                sqlErrors.add(sqlError);
+                                continue;
+                            }
                         }
                     }
 
@@ -322,27 +354,32 @@ public class CheckSqlExecutor {
 
                 String woutBindVarsBlock = replaceBindVars(beginEndStatement, tableName, sqlColName, entityId);
                 String wrappedBlockAsProc = wrapBlockAsProc(woutBindVarsBlock);
-                try {
-                    test1JdbcTemplate.update(wrappedBlockAsProc);
-                    isProc1Created = true;
-                } catch (DataAccessException e) {
-                    if (useSecondTest) {
+                if (useSecondTest) {
+                    try {
+                        test2JdbcTemplate.update(wrappedBlockAsProc);
+                        isProc2Created = true;
+                    } catch (DataAccessException e2) {
                         try {
-                            test2JdbcTemplate.update(wrappedBlockAsProc);
-                            isProc2Created = true;
-                        } catch (DataAccessException e2) {
-                            sqlError = new SqlError("CREATE-PROC2");
+                            test1JdbcTemplate.update(wrappedBlockAsProc);
+                            isProc1Created = true;
+                        } catch (DataAccessException e) {
+                            sqlError = new SqlError("CREATE-PROC1");
                             sqlError.setTableName(tableName);
                             sqlError.setEntityIdColName(entityIdColName);
                             sqlError.setSqlColName(sqlColName);
                             sqlError.setEntityId(entityId);
-                            sqlError.setErrMsg(e2.getMessage());
+                            sqlError.setErrMsg(e.getMessage());
                             sqlError.setQuery(wrappedBlockAsProc);
                             sqlError.setOriginalQuery(entityBlock);
                             sqlErrors.add(sqlError);
                             continue;
                         }
-                    } else {
+                    }
+                } else {
+                    try {
+                        test1JdbcTemplate.update(wrappedBlockAsProc);
+                        isProc1Created = true;
+                    } catch (DataAccessException e) {
                         sqlError = new SqlError("CREATE-PROC1");
                         sqlError.setTableName(tableName);
                         sqlError.setEntityIdColName(entityIdColName);
@@ -356,33 +393,17 @@ public class CheckSqlExecutor {
                     }
                 }
 
-                if (isProc1Created) {
-                    SqlRowSet procErrSqlRowSet = test1JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
+                
+                if (useSecondTest && isProc2Created) {
+                    SqlRowSet procErrSqlRowSet = test2JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
                     if (procErrSqlRowSet.next()) {
                         String errMsg = getStringVal(procErrSqlRowSet, 1);
-                        if (StringUtils.isNotBlank(errMsg) && useSecondTest) {
-                            if (!isProc2Created) {
-                                try {
-                                    test2JdbcTemplate.update(wrappedBlockAsProc);
-                                } catch (DataAccessException e2) {
-                                    sqlError = new SqlError("CREATE-PROC2");
-                                    sqlError.setTableName(tableName);
-                                    sqlError.setEntityIdColName(entityIdColName);
-                                    sqlError.setSqlColName(sqlColName);
-                                    sqlError.setEntityId(entityId);
-                                    sqlError.setErrMsg(e2.getMessage());
-                                    sqlError.setQuery(wrappedBlockAsProc);
-                                    sqlError.setOriginalQuery(entityBlock);
-                                    sqlErrors.add(sqlError);
-                                    continue;
-                                }
-                            }
-
-                            procErrSqlRowSet = test2JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
+                        if (StringUtils.isNotBlank(errMsg)) {
+                               procErrSqlRowSet = test1JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
                             if (procErrSqlRowSet.next()) {
                                 errMsg = getStringVal(procErrSqlRowSet, 1);
                                 if (StringUtils.isNotBlank(errMsg)) {
-                                    sqlError = new SqlError("PLSQL2");
+                                    sqlError = new SqlError("PLSQL1");
                                     sqlError.setTableName(tableName);
                                     sqlError.setEntityIdColName(entityIdColName);
                                     sqlError.setSqlColName(sqlColName);
@@ -394,25 +415,14 @@ public class CheckSqlExecutor {
                                     continue;
                                 }
                             }
-                        } else if (StringUtils.isNotBlank(errMsg)) {
-                            sqlError = new SqlError("PLSQL1");
-                            sqlError.setTableName(tableName);
-                            sqlError.setEntityIdColName(entityIdColName);
-                            sqlError.setSqlColName(sqlColName);
-                            sqlError.setEntityId(entityId);
-                            sqlError.setErrMsg(errMsg);
-                            sqlError.setQuery(wrappedBlockAsProc);
-                            sqlError.setOriginalQuery(entityBlock);
-                            sqlErrors.add(sqlError);
-                            continue;
                         }
                     }
-                } else if (isProc2Created) {
-                    SqlRowSet procErrSqlRowSet = test2JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
+                } else if (isProc1Created) {
+                    SqlRowSet procErrSqlRowSet = test1JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS, PLSQL_PROC_NAME);
                     if (procErrSqlRowSet.next()) {
                         String errMsg = getStringVal(procErrSqlRowSet, 1);
                         if (StringUtils.isNotBlank(errMsg)) {
-                            sqlError = new SqlError("PLSQL2");
+                            sqlError = new SqlError("PLSQL1");
                             sqlError.setTableName(tableName);
                             sqlError.setEntityIdColName(entityIdColName);
                             sqlError.setSqlColName(sqlColName);
@@ -482,7 +492,7 @@ public class CheckSqlExecutor {
     }
 
     private String replaceRuleParams(String sql, String entityId) {
-        List<String> params = ownerJdbcTemplate.queryForList(FIND_RULE_PARAM_SQL_PARAM_BY_ENTITY_ID,
+        List<String> params = owner1JdbcTemplate.queryForList(FIND_RULE_PARAM_SQL_PARAM_BY_ENTITY_ID,
                 String.class, entityId);
         String newSql = new String(sql);
         for (String param : params) {
@@ -514,7 +524,7 @@ public class CheckSqlExecutor {
     }
 
     private String replaceImpEntityParamsByEntityId(String sql, String entityId) {
-        List<String> sqlParams = ownerJdbcTemplate.queryForList(FIND_IMP_ENTITY_PARAM_SQL_PARAM_BY_ENTITY_ID,
+        List<String> sqlParams = owner1JdbcTemplate.queryForList(FIND_IMP_ENTITY_PARAM_SQL_PARAM_BY_ENTITY_ID,
                 String.class, entityId);
         String newSql = new String(sql);
         for (String sqlParam : sqlParams) {
@@ -526,7 +536,7 @@ public class CheckSqlExecutor {
     }
 
     private String replaceImpDataTypeParamByImpDataTypeId(String sql, String impDataTypeId) {
-        List<String> sqlParams = ownerJdbcTemplate.queryForList(FIND_IMP_DATA_TYPE_PARAM_SQL_PARAM_BY_IMP_DATA_TYPE_ID,
+        List<String> sqlParams = owner1JdbcTemplate.queryForList(FIND_IMP_DATA_TYPE_PARAM_SQL_PARAM_BY_IMP_DATA_TYPE_ID,
                 String.class, impDataTypeId);
         String newSql = new String(sql);
         for (String sqlParam : sqlParams) {
@@ -561,17 +571,34 @@ public class CheckSqlExecutor {
         return ddl.toString();
     }
 
-    private boolean setRandomProgramId() {
+    private boolean setRandomProgramIdForTest1() {
         Long pid;
         if (versionMode.equals(1L)) {
-            pid = ownerJdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_NEW, Long.class);
+            pid = owner1JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_NEW, Long.class);
         } else {
-            pid = ownerJdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_OLD, Long.class);
+            pid = owner1JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_OLD, Long.class);
         }
         try {
             test1JdbcTemplate.update(SET_PID, pid);
         } catch (DataAccessException e1) {
-            sqlError = new SqlError("(RND)PKG_SEC.SET_PID");
+            sqlError = new SqlError("(RND)PKG_SEC.SET_PID-1");
+            sqlError.setErrMsg(e1.getMessage());
+            return false;
+        }
+        return true;
+    }
+
+    private boolean setRandomProgramIdForTest2() {
+        Long pid;
+        if (versionMode.equals(1L)) {
+            pid = owner2JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_NEW, Long.class);
+        } else {
+            pid = owner2JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_OLD, Long.class);
+        }
+        try {
+            test2JdbcTemplate.update(SET_PID, pid);
+        } catch (DataAccessException e1) {
+            sqlError = new SqlError("(RND)PKG_SEC.SET_PID-2");
             sqlError.setErrMsg(e1.getMessage());
             return false;
         }
@@ -582,18 +609,22 @@ public class CheckSqlExecutor {
 
         TGSqlParser pareparedSqlParser = SqlParser.getParser(sql);
         Map<String, Object> paramMap = getSqlParamMap(pareparedSqlParser);
-        try {
-            test1NamedParamJdbcTemplate.queryForRowSet(sql, paramMap);
-        } catch (DataAccessException e) {
-            if (this.useSecondTest) {
+        if (this.useSecondTest) {
+            try {
+                test2NamedParamJdbcTemplate.queryForRowSet(sql, paramMap);
+            } catch (DataAccessException e2) {
                 try {
-                    test2NamedParamJdbcTemplate.queryForRowSet(sql, paramMap);
-                } catch (DataAccessException e2) {
-                    sqlError = new SqlError(SqlError.SELECT_ERR_TYPE + "2");
-                    sqlError.setErrMsg(e2.getMessage());
+                    test1NamedParamJdbcTemplate.queryForRowSet(sql, paramMap);
+                } catch (DataAccessException e) {
+                    sqlError = new SqlError(SqlError.SELECT_ERR_TYPE + "1");
+                    sqlError.setErrMsg(e.getMessage());
                     return false;
                 }
-            } else {
+            }
+        } else {
+            try {
+                test1NamedParamJdbcTemplate.queryForRowSet(sql, paramMap);
+            } catch (DataAccessException e) {
                 sqlError = new SqlError(SqlError.SELECT_ERR_TYPE + "1");
                 sqlError.setErrMsg(e.getMessage());
                 return false;
@@ -619,12 +650,24 @@ public class CheckSqlExecutor {
         return newSql;
     }
 
-    private boolean setProgramId(SqlRowSet sqlRowSet) {
+    private boolean setProgramIdForTest1(SqlRowSet sqlRowSet) {
         Long pid = sqlRowSet.getLong(1);
         try {
             test1JdbcTemplate.update(SET_PID, pid);
         } catch (DataAccessException e1) {
-            sqlError = new SqlError("PKG_SEC.SET_PID");
+            sqlError = new SqlError("PKG_SEC.SET_PID-1");
+            sqlError.setErrMsg(e1.getMessage());
+            return false;
+        }
+        return true;
+    }
+
+    private boolean setProgramIdForTest2(SqlRowSet sqlRowSet) {
+        Long pid = sqlRowSet.getLong(1);
+        try {
+            test2JdbcTemplate.update(SET_PID, pid);
+        } catch (DataAccessException e1) {
+            sqlError = new SqlError("PKG_SEC.SET_PID-2");
             sqlError.setErrMsg(e1.getMessage());
             return false;
         }
@@ -689,7 +732,7 @@ public class CheckSqlExecutor {
     private SqlRowSet getSqlRowSetData(String sql) {
         SqlRowSet sqlRowSet;
         try {
-            sqlRowSet = ownerJdbcTemplate.queryForRowSet(sql);
+            sqlRowSet = owner1JdbcTemplate.queryForRowSet(sql);
         } catch (DataAccessException e1) {
             sqlError = new SqlError("SELECT-ENTITY");
             sqlError.setErrMsg(e1.getMessage());

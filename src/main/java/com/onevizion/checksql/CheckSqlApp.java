@@ -22,7 +22,7 @@ public class CheckSqlApp {
 
     public static final String JDBC_THIN_URL_PREFIX = "jdbc:oracle:thin:@";
 
-    private static final String ARGS_ERROR_MESSAGE = "Expected command line arguments: <version_mode> <owner>/<owner_pwd>@<owner_connect_identifier> <test1>/<test1_pwd>@<test1_connect_identifier> [<test2>/<test2_pwd>@<test2_connect_identifier>]";
+    private static final String ARGS_ERROR_MESSAGE = "Expected command line arguments: <version_mode> <owner1>/<owner1_pwd>@<owner1_connect_identifier> <test1>/<test1_pwd>@<test1_connect_identifier> [<owner2>/<owner2_pwd>@<owner2_connect_identifier> <test2>/<test2_pwd>@<test2_connect_identifier>]";
 
     public static void main(String[] args) {
         CheckSqlApp app = new CheckSqlApp();
@@ -32,19 +32,22 @@ public class CheckSqlApp {
         Long versionMode = Long.valueOf(args[0]);
         
         String[] ownerCnnProps = parseDbCnnStr(args[1]);
-        configDataSource((PoolDataSource) ctx.getBean("ownerDataSource"), ownerCnnProps, "check-sql_owner");
+        configDataSource((PoolDataSource) ctx.getBean("owner1DataSource"), ownerCnnProps, "check-sql_owner1");
 
         String[] test1CnnProps = parseDbCnnStr(args[2]);
         configDataSource((PoolDataSource) ctx.getBean("test1DataSource"), test1CnnProps, "check-sql_test1");
 
-        if (args.length == 4) {
-            String[] test2CnnProps = parseDbCnnStr(args[3]);
+        if (args.length == 5) {
+            String[] owner2CnnProps = parseDbCnnStr(args[3]);
+            configDataSource((PoolDataSource) ctx.getBean("owner2DataSource"), owner2CnnProps, "check-sql_owner2");
+            
+            String[] test2CnnProps = parseDbCnnStr(args[4]);
             configDataSource((PoolDataSource) ctx.getBean("test2DataSource"), test2CnnProps, "check-sql_test2");
         }
 
         CheckSqlExecutor executor = ctx.getBean(CheckSqlExecutor.class);
         try {
-            executor.run(versionMode, args.length == 4);
+            executor.run(versionMode, args.length == 5);
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }
@@ -96,7 +99,7 @@ public class CheckSqlApp {
     }
 
     private void checkArgsAndThrow(String[] args) throws IllegalArgumentException {
-        if (args.length < 3 || args.length > 4) {
+        if (args.length < 3 || args.length != 5) {
             throw new IllegalArgumentException(ARGS_ERROR_MESSAGE);
         }
         
@@ -107,8 +110,9 @@ public class CheckSqlApp {
         parseDbCnnStr(args[1]);
         parseDbCnnStr(args[2]);
 
-        if (args.length == 4) {
+        if (args.length == 5) {
             parseDbCnnStr(args[3]);
+            parseDbCnnStr(args[4]);
         }
     }
 
