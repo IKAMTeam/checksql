@@ -45,6 +45,18 @@
     </dependency>
     
     <dependency>
+        <groupId>org.jdom</groupId>
+        <artifactId>jdom</artifactId>
+        <version>2.0.2</version>
+    </dependency>
+    
+    <dependency>
+        <groupId>jaxen</groupId>
+        <artifactId>jaxen</artifactId>
+        <version>1.1.6</version>
+    </dependency>
+    
+    <dependency>
         <groupId>com.sqlparser</groupId>
         <artifactId>gsp</artifactId>
         <version>1.5.2.2</version>

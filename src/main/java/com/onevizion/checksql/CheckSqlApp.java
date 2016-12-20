@@ -5,6 +5,7 @@ import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.jdom2.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -22,24 +23,25 @@ public class CheckSqlApp {
 
     private static final String JDBC_THIN_URL_PREFIX = "jdbc:oracle:thin:@";
 
-    private static final String ARGS_ERROR_MESSAGE = "Expected command line arguments: <remote_owner>/<remote_owner_pwd>@<remote_owner_connect_identifier> <remote_user>/<remote_user_pwd>@<remote_user_connect_identifier> [<local_owner>/<local_owner_pwd>@<local_owner_connect_identifier> <local_user>/<local_user_pwd>@<local_user_connect_identifier>]";
-
     public static void main(String[] args) {
         CheckSqlApp app = new CheckSqlApp();
 
-        ApplicationContext ctx = app.getAppContext("com/onevizion/checksql/beans.xml", args);
+        Document doc = XmlConfUtils.getDoc("check-sql.xml");
+        Configuration configuration = ConfigurationUtils.loadConfiguration(doc);
 
-        configDataSource((PoolDataSource) ctx.getBean("owner1DataSource"), parseDbCnnStr(args[0]), "check-sql_owner1", false, true);
-        configDataSource((PoolDataSource) ctx.getBean("test1DataSource"), parseDbCnnStr(args[1]), "check-sql_test1", false, false);
+        ApplicationContext ctx = app.getAppContext("com/onevizion/checksql/beans.xml", configuration);
 
-        if (args.length == 4) {
-            configDataSource((PoolDataSource) ctx.getBean("owner2DataSource"), parseDbCnnStr(args[2]), "check-sql_owner2", true, true);
-            configDataSource((PoolDataSource) ctx.getBean("test2DataSource"), parseDbCnnStr(args[3]), "check-sql_test2", true, false);
+        configDataSource((PoolDataSource) ctx.getBean("owner1DataSource"), parseDbCnnStr(configuration.getRemoteOwner()), "check-sql_owner1", false, true);
+        configDataSource((PoolDataSource) ctx.getBean("test1DataSource"), parseDbCnnStr(configuration.getRemoteUser()), "check-sql_test1", false, false);
+
+        if (configuration.isUseSecondTest()) {
+            configDataSource((PoolDataSource) ctx.getBean("owner2DataSource"), parseDbCnnStr(configuration.getLocalOwner()), "check-sql_owner2", true, true);
+            configDataSource((PoolDataSource) ctx.getBean("test2DataSource"), parseDbCnnStr(configuration.getLocalUser()), "check-sql_test2", true, false);
         }
 
         CheckSqlExecutor executor = ctx.getBean(CheckSqlExecutor.class);
         try {
-            executor.run(args.length == 4);
+            executor.run(configuration);
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }
@@ -59,11 +61,11 @@ public class CheckSqlApp {
         return props;
     }
 
-    private ApplicationContext getAppContext(String beansXmlClassPath, String[] args) {
+    private ApplicationContext getAppContext(String beansXmlClassPath, Configuration configuration) {
         try {
-            checkArgsAndThrow(args);
-            configLogger(args);
-            ApplicationContext ctx = configAppContext(beansXmlClassPath, args);
+            checkArgsAndThrow(configuration);
+            configLogger(configuration);
+            ApplicationContext ctx = configAppContext(beansXmlClassPath);
             return ctx;
         } catch (Exception e) {
             if (logger == null) {
@@ -79,8 +81,8 @@ public class CheckSqlApp {
         }
     }
 
-    private void configLogger(String[] args) {
-        String[] cnnProps = parseDbCnnStr(args[0]);
+    private void configLogger(Configuration configuration) {
+        String[] cnnProps = parseDbCnnStr(configuration.getRemoteOwner());
 
         // System property to be used by logger
         String schema = cnnProps[0] + "." + cnnProps[2].split("@")[1].split("\\.")[0];
@@ -88,21 +90,26 @@ public class CheckSqlApp {
         logger = LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
     }
 
-    private void checkArgsAndThrow(String[] args) throws IllegalArgumentException {
-        if (args.length != 2 && args.length != 4) {
-            throw new IllegalArgumentException(ARGS_ERROR_MESSAGE);
+    private void checkArgsAndThrow(Configuration configuration) throws IllegalArgumentException {
+        if (StringUtils.isBlank(configuration.getRemoteOwner()) || StringUtils.isBlank(configuration.getRemoteUser())) {
+            throw new IllegalArgumentException("both remote_owner and remote_user should set");
         }
 
-        parseDbCnnStr(args[0]);
-        parseDbCnnStr(args[1]);
+        if ((StringUtils.isNotBlank(configuration.getLocalOwner()) && StringUtils.isBlank(configuration.getLocalUser()))
+                || (StringUtils.isBlank(configuration.getLocalOwner()) && StringUtils.isNotBlank(configuration.getLocalUser()))) {
+            throw new IllegalArgumentException("both local_owner and local_user should set or nothing");
+        }
 
-        if (args.length == 4) {
-            parseDbCnnStr(args[2]);
-            parseDbCnnStr(args[3]);
+        parseDbCnnStr(configuration.getRemoteOwner());
+        parseDbCnnStr(configuration.getRemoteUser());
+
+        if (configuration.isUseSecondTest()) {
+            parseDbCnnStr(configuration.getLocalOwner());
+            parseDbCnnStr(configuration.getLocalUser());
         }
     }
 
-    private ApplicationContext configAppContext(String beansXmlClassPath, String[] args) {
+    private ApplicationContext configAppContext(String beansXmlClassPath) {
         ApplicationContext ctx = new ClassPathXmlApplicationContext("classpath:" + beansXmlClassPath);
         return ctx;
     }

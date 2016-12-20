@@ -122,20 +122,16 @@ public class CheckSqlExecutor {
             "select s.wf_step_id, s.plsql_block from wf_step s join wf_workflow w on (w.wf_workflow_id = s.wf_workflow_id) where s.plsql_block is not null and w.wf_state_id not in (4,5)",
             "select wf_template_step_id, plsql_block from wf_template_step where plsql_block is not null"));
 
-    private boolean useSecondTest;
-
     public CheckSqlExecutor() {
         super();
 
         sqlErrors = new ArrayList<SqlError>();
     }
 
-    public void run(boolean useSecondTest) {
-        this.useSecondTest = useSecondTest;
-
+    public void run(Configuration configuration) {
         logger.info("SQL Checker is started");
-        executeQueries(SELECT_QUERIES);
-        testPlsql(PLSQL_BLOCKS);
+        executeQueries(SELECT_QUERIES, configuration);
+        testPlsql(PLSQL_BLOCKS, configuration);
         logSqlErrors();
         logger.info("SQL Checker is completed");
     }
@@ -182,7 +178,7 @@ public class CheckSqlExecutor {
         }
     }
 
-    private void executeQueries(List<String> queries) {
+    private void executeQueries(List<String> queries, Configuration configuration) {
         for (String sql : queries) {
             sqlError = null;
 
@@ -199,7 +195,7 @@ public class CheckSqlExecutor {
                 continue;
             }
 
-            if (useSecondTest) {
+            if (configuration.isUseSecondTest()) {
                 setRandomProgramIdForTest2();
                 if (sqlError != null) {
                     //setRandomProgramIdForTest1();
@@ -263,7 +259,7 @@ public class CheckSqlExecutor {
                         sqlWoutPlaceholder = sqlWoutPlaceholder.replace("?", ":p");
                     }
                     if (sqlDataCols.size() == 3) {
-                        if (useSecondTest) {
+                        if (configuration.isUseSecondTest()) {
                             setProgramIdForTest2(sqlRowSet);
                             if (sqlError != null) {
                                 //setProgramIdForTest1(sqlRowSet);
@@ -293,7 +289,7 @@ public class CheckSqlExecutor {
 
                     String preparedSql = SqlParser.removeIntoClause(sqlWoutPlaceholder);
                     preparedSql = removeSemicolonAtTheEnd(preparedSql);
-                    testSelectQuery(preparedSql);
+                    testSelectQuery(preparedSql, configuration);
                     if (sqlError != null) {
                         sqlError.setTableName(tableName);
                         sqlError.setEntityIdColName(entityIdColName);
@@ -310,7 +306,7 @@ public class CheckSqlExecutor {
         }
     }
 
-    private void testPlsql(List<String> queries) {
+    private void testPlsql(List<String> queries, Configuration configuration) {
         boolean isProc1Created = false;
         boolean isProc2Created = false;
         for (String sql : queries) {
@@ -370,7 +366,7 @@ public class CheckSqlExecutor {
 
                 String woutBindVarsBlock = replaceBindVars(beginEndStatement, tableName, sqlColName, entityId);
                 String wrappedBlockAsProc = wrapBlockAsProc(woutBindVarsBlock);
-                if (useSecondTest) {
+                if (configuration.isUseSecondTest()) {
                     try {
                         isProc2Created = false;
                         test2JdbcTemplate.update(wrappedBlockAsProc);
@@ -675,10 +671,10 @@ public class CheckSqlExecutor {
         return true;
     }
 
-    private boolean testSelectQuery(String sql) {
+    private boolean testSelectQuery(String sql, Configuration configuration) {
         TGSqlParser pareparedSqlParser = SqlParser.getParser(sql);
         Map<String, Object> paramMap = getSqlParamMap(pareparedSqlParser);
-        if (useSecondTest) {
+        if (configuration.isUseSecondTest()) {
             try {
                 test2NamedParamJdbcTemplate.queryForRowSet(sql, paramMap);
             } catch (DataAccessException e) {

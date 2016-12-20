@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<root>
+    <remote_owner>username/password@host:port:SID</remote_owner>
+    <remote_user>username/password@host:port:SID</remote_user>
+    <local_owner>username/password@host:port:SID</local_owner>
+    <local_user>username/password@host:port:SID</local_user>
+    <sql>
+        <enabled>true</enabled>
+        <disable-tables>config_field,imp_data_map</disable-tables>
+    </sql>
+    <pl_sql>
+        <enabled>false</enabled>
+        <disable-tables></disable-tables>
+    </pl_sql>
+</root>
