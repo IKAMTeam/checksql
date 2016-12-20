@@ -218,7 +218,9 @@ public class CheckSqlExecutor {
                 }
             }
 
+            boolean isEmptyTable = true;
             while (sqlRowSet.next()) {
+                isEmptyTable = false;
                 sqlError = null;
                 logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row {}/{}", sel.getOrdNum(), tableNums,
                         sqlRowSet.getRow(), sqlRowSet.getString(SelectQuery.TOTAL_ROWS_COL_NAME));
@@ -331,6 +333,9 @@ public class CheckSqlExecutor {
                     }
                 }
             }
+            if (isEmptyTable) {
+                logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row 0/0", sel.getOrdNum(), tableNums);
+            }
         }
     }
 
@@ -366,7 +371,9 @@ public class CheckSqlExecutor {
                 continue;
             }
 
+            boolean isEmptyTable = true;
             while (sqlRowSet.next()) {
+                isEmptyTable = false;
                 sqlError = null;
 
                 logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} Row {}/{}", plsql.getOrdNum(), tableNums,
@@ -549,6 +556,9 @@ public class CheckSqlExecutor {
                 } else {
                     continue;
                 }
+            }
+            if (isEmptyTable) {
+                logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} Row 0/0", plsql.getOrdNum(), tableNums);
             }
         }
 
