@@ -164,7 +164,7 @@ public class CheckSqlExecutor {
     }
 
     private void executeQueries(Configuration config) {
-        int tableNums = SelectQuery.getTableNums();
+        int tableNums = SelectQuery.values().length;
         for (SelectQuery sel : SelectQuery.values()) {
             if (!sel.isCheckQuery()) {
                 logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} - Check is disabled", sel.getOrdNum(), tableNums);
@@ -342,7 +342,7 @@ public class CheckSqlExecutor {
     private void testPlsql(Configuration config) {
         boolean isProc1Created = false;
         boolean isProc2Created = false;
-        int tableNums = PlsqlBlock.getTableNums();
+        int tableNums = PlsqlBlock.values().length;
         for (PlsqlBlock plsql : PlsqlBlock.values()) {
             if (!plsql.isCheckQuery()) {
                 logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} - Check is disabled", plsql.getOrdNum(), tableNums);
@@ -773,11 +773,12 @@ public class CheckSqlExecutor {
     }
 
     private boolean testSelectQuery(String sql, Configuration configuration) {
-        TGSqlParser pareparedSqlParser = SqlParser.getParser(sql);
+        String limitedSql = "select * from (\r\n" + sql + "\r\n) where rownum = 1";
+        TGSqlParser pareparedSqlParser = SqlParser.getParser(limitedSql);
         Map<String, Object> paramMap = getSqlParamMap(pareparedSqlParser);
         if (configuration.isUseSecondTest()) {
             try {
-                test2NamedParamJdbcTemplate.queryForRowSet(sql, paramMap);
+                test2NamedParamJdbcTemplate.queryForRowSet(limitedSql, paramMap);
             } catch (DataAccessException e) {
                 // try {
                 // test1NamedParamJdbcTemplate.queryForRowSet(sql,
@@ -790,7 +791,7 @@ public class CheckSqlExecutor {
             }
         } else {
             try {
-                test1NamedParamJdbcTemplate.queryForRowSet(sql, paramMap);
+                test1NamedParamJdbcTemplate.queryForRowSet(limitedSql, paramMap);
             } catch (DataAccessException e) {
                 sqlError = new SqlError(SqlError.SELECT_ERR_TYPE + "1");
                 sqlError.setErrMsg(e.getMessage());

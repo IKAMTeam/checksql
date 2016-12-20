@@ -79,14 +79,4 @@ public enum PlsqlBlock {
         }
         return sql.toString();
     }
-
-    public static int getTableNums() {
-        int nums = 0;
-        for (SelectQuery sel : SelectQuery.values()) {
-            if (sel.isCheckQuery()) {
-                nums++;
-            }
-        }
-        return nums;
-    }
 }
