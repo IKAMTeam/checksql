@@ -147,9 +147,9 @@ public class CheckSqlExecutor {
 
         logTableStats();
 
-        for (SqlError err : sqlErrors) {
-            logger.warn(err.toString());
-        }
+        //for (SqlError err : sqlErrors) {
+        //    logger.warn(err.toString());
+        //}
     }
 
     private void logTableStats() {
@@ -195,6 +195,7 @@ public class CheckSqlExecutor {
             if (sqlRowSet == null) {
                 sqlError.setTableName(tableName);
                 sqlErrors.add(sqlError);
+                logger.warn(sqlError.toString());
                 continue;
             }
 
@@ -207,6 +208,7 @@ public class CheckSqlExecutor {
                         sqlError.setEntityIdColName(entityIdColName);
                         sqlError.setSqlColName(sqlColName);
                         sqlErrors.add(sqlError);
+                        logger.warn(sqlError.toString());
                         continue;
                     //}
                 }
@@ -217,6 +219,7 @@ public class CheckSqlExecutor {
                     sqlError.setEntityIdColName(entityIdColName);
                     sqlError.setSqlColName(sqlColName);
                     sqlErrors.add(sqlError);
+                    logger.warn(sqlError.toString());
                     continue;
                 }
             }
@@ -233,6 +236,7 @@ public class CheckSqlExecutor {
                     sqlError.setSqlColName(sqlColName);
                     sqlError.setEntityId(entityId);
                     sqlErrors.add(sqlError);
+                    logger.warn(sqlError.toString());
                     continue;
                 }
 
@@ -250,6 +254,7 @@ public class CheckSqlExecutor {
                     sqlError.setQuery(replacedImpVars);
                     sqlError.setOriginalQuery(entitySql);
                     sqlErrors.add(sqlError);
+                    logger.warn(sqlError.toString());
                     continue;
                 }
                 if (SqlParser.isSelectStatement(parser)) {
@@ -268,6 +273,7 @@ public class CheckSqlExecutor {
                                     sqlError.setSqlColName(sqlColName);
                                     sqlError.setEntityId(entityId);
                                     sqlErrors.add(sqlError);
+                                    logger.warn(sqlError.toString());
                                     continue;
                                 //}
                             }
@@ -279,6 +285,7 @@ public class CheckSqlExecutor {
                                 sqlError.setSqlColName(sqlColName);
                                 sqlError.setEntityId(entityId);
                                 sqlErrors.add(sqlError);
+                                logger.warn(sqlError.toString());
                                 continue;
                             }
                         }
@@ -295,6 +302,7 @@ public class CheckSqlExecutor {
                         sqlError.setQuery(preparedSql);
                         sqlError.setOriginalQuery(entitySql);
                         sqlErrors.add(sqlError);
+                        logger.warn(sqlError.toString());
                         continue;
                     }
                 }
@@ -318,6 +326,7 @@ public class CheckSqlExecutor {
             if (sqlRowSet == null) {
                 sqlError.setTableName(tableName);
                 sqlErrors.add(sqlError);
+                logger.warn(sqlError.toString());
                 continue;
             }
 
@@ -333,6 +342,7 @@ public class CheckSqlExecutor {
                     sqlError.setSqlColName(sqlColName);
                     sqlError.setEntityId(entityId);
                     sqlErrors.add(sqlError);
+                    logger.warn(sqlError.toString());
                     continue;
                 }
 
@@ -350,6 +360,7 @@ public class CheckSqlExecutor {
                     sqlError.setQuery(beginEndStatement);
                     sqlError.setOriginalQuery(entityBlock);
                     sqlErrors.add(sqlError);
+                    logger.warn(sqlError.toString());
                     continue;
                 }
 
@@ -374,6 +385,7 @@ public class CheckSqlExecutor {
                         sqlError.setQuery(wrappedBlockAsProc);
                         sqlError.setOriginalQuery(entityBlock);
                         sqlErrors.add(sqlError);
+                        logger.warn(sqlError.toString());
                     }
                 } else {
                     try {
@@ -432,6 +444,7 @@ public class CheckSqlExecutor {
                                     sqlError.setQuery(wrappedBlockAsProc);
                                     sqlError.setOriginalQuery(entityBlock);
                                     sqlErrors.add(sqlError);
+                                    logger.warn(sqlError.toString());
                                     continue;
                             //    }
                             //}
@@ -451,6 +464,7 @@ public class CheckSqlExecutor {
                             sqlError.setQuery(wrappedBlockAsProc);
                             sqlError.setOriginalQuery(entityBlock);
                             sqlErrors.add(sqlError);
+                            logger.warn(sqlError.toString());
                             continue;
                         }
                     }
