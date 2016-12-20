@@ -104,10 +104,19 @@ public class CheckSqlExecutor {
         sqlErrors = new ArrayList<SqlError>();
     }
 
-    public void run(Configuration configuration) {
+    public void run(Configuration config) {
         logger.info(INFO_MARKER, "SQL Checker is started");
-        executeQueries(configuration);
-        testPlsql(configuration);
+
+        if (config.isEnabledSql()) {
+            executeQueries(config);
+        } else {
+            logger.info(INFO_MARKER, "Testing of SELECT queries is disabled");
+        }
+        if (config.isEnabledPlSql()) {
+            testPlsql(config);
+        } else {
+            logger.info(INFO_MARKER, "Testing of PLSQL blocks is disabled");
+        }
         logSqlErrors();
         logger.info(INFO_MARKER, "SQL Checker is completed");
     }
