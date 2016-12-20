@@ -2,18 +2,14 @@ package com.onevizion.checksql;
 
 public enum PlsqlBlock {
 
-    IMP_DATA_MAP(true, "imp_data_map", "imp_data_map", "sql_text", "imp_data_map_id", "length(sql_text) > 0"),
-    IMP_DATA_TYPE(false, "imp_data_type", "imp_data_type", "sql_text", "imp_data_type_id", null),
-    IMP_DATA_ENTITY(true, "imp_entity", "imp_entity", "sql_text", "imp_entity_id", null),
-    IMP_SPEC(true, "imp_spec", "imp_spec", "external_proc", "imp_spec_id", null),
-    RULE(true, "rule", "rule", "sql_text", "rule_id", "is_enabled = 1"),
-    RULE_CLASS_PARAM_VAL(true, "rule_class_param_value",
-            "rule_class_param_value v join rule r on (r.rule_id = v.rule_id)", "v.value_clob",
-            "v.rule_class_param_value_id", "r.is_enabled = 1"),
-    WF_STEP(true, "wf_step",
-            "wf_step s join wf_workflow w on (w.wf_workflow_id = s.wf_workflow_id)", "s.plsql_block",
-            "s.wf_step_id", "w.wf_state_id not in (4,5)"),
-    WF_TEMPLATE_STEP(true, "wf_template_step", "wf_template_step", "plsql_block", "wf_template_step_id", null);
+    IMP_DATA_MAP(1, true, "imp_data_map", "imp_data_map", "sql_text", "imp_data_map_id", "length(sql_text) > 0"),
+    IMP_DATA_TYPE(2, false, "imp_data_type", "imp_data_type", "sql_text", "imp_data_type_id", null),
+    IMP_DATA_ENTITY(3, true, "imp_entity", "imp_entity", "sql_text", "imp_entity_id", null),
+    IMP_SPEC(4, true, "imp_spec", "imp_spec", "external_proc", "imp_spec_id", null),
+    RULE(5, true, "rule", "rule", "sql_text", "rule_id", "is_enabled = 1"),
+    RULE_CLASS_PARAM_VAL(6, true, "rule_class_param_value", "rule_class_param_value v join rule r on (r.rule_id = v.rule_id)", "v.value_clob", "v.rule_class_param_value_id", "r.is_enabled = 1"),
+    WF_STEP(7, true, "wf_step", "wf_step s join wf_workflow w on (w.wf_workflow_id = s.wf_workflow_id)", "s.plsql_block", "s.wf_step_id", "w.wf_state_id not in (4,5)"),
+    WF_TEMPLATE_STEP(8, true, "wf_template_step", "wf_template_step", "plsql_block", "wf_template_step_id", null);
 
     public static final String TOTAL_ROWS_COL_NAME = "totalrows";
 
@@ -23,10 +19,12 @@ public enum PlsqlBlock {
     private final String primKeyColName;
     private final String whereClause;
     private final String tableName;
+    private final int ordNum;
 
-    private PlsqlBlock(boolean checkQuery, String tableName, String fromClause, String sqlColName,
+    private PlsqlBlock(int ordNum, boolean checkQuery, String tableName, String fromClause, String sqlColName,
             String primKeyColName,
             String whereClause) {
+        this.ordNum = ordNum;
         this.checkQuery = checkQuery;
         this.fromClause = fromClause;
         this.sqlColName = sqlColName;
@@ -35,12 +33,16 @@ public enum PlsqlBlock {
         this.tableName = tableName;
     }
 
-    public String getFromClause() {
-        return fromClause;
+    public String getSqlColName() {
+        return sqlColName;
     }
 
-    public String getColumnName() {
-        return sqlColName;
+    public int getOrdNum() {
+        return ordNum;
+    }
+
+    public String getFromClause() {
+        return fromClause;
     }
 
     public String getPrimKeyColName() {
@@ -63,18 +65,28 @@ public enum PlsqlBlock {
         StringBuilder sql = new StringBuilder("select ");
         sql.append(getPrimKeyColName());
         sql.append(", ");
-        sql.append(getColumnName());
+        sql.append(getSqlColName());
         sql.append(", count(*) over () as ");
         sql.append(TOTAL_ROWS_COL_NAME);
         sql.append(" from ");
         sql.append(getFromClause());
         sql.append(" where ");
-        sql.append(getColumnName());
+        sql.append(getSqlColName());
         sql.append(" is not null");
         if (getWhereClause() != null) {
             sql.append(" and ");
             sql.append(getWhereClause());
         }
         return sql.toString();
+    }
+
+    public static int getTableNums() {
+        int nums = 0;
+        for (SelectQuery sel : SelectQuery.values()) {
+            if (sel.isCheckQuery()) {
+                nums++;
+            }
+        }
+        return nums;
     }
 }
