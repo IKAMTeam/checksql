@@ -2,6 +2,11 @@
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>logs/${schema}.log</file>
         <append>true</append>
+        <filter class="com.onevizion.checksql.CheckSqlLogFilter">
+            <marker>DATA_SQL</marker>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
 
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <fileNamePattern>logs/${schema}.%d{yyyy-MM-dd}.log</fileNamePattern>
@@ -15,10 +20,15 @@
     </appender>
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-      <!-- encoders are assigned the type ch.qos.logback.classic.encoder.PatternLayoutEncoder by default -->
-      <encoder>
-        <pattern>%msg %n</pattern>
-      </encoder>
+        <filter class="com.onevizion.checksql.CheckSqlLogFilter">
+            <marker>INFO_SQL</marker>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <!-- encoders are assigned the type ch.qos.logback.classic.encoder.PatternLayoutEncoder by default -->
+        <encoder>
+            <pattern>%msg %n</pattern>
+        </encoder>
     </appender>
 
     <root level="INFO">
@@ -26,5 +36,5 @@
         <appender-ref ref="STDOUT" />
     </root>
 
-    <logger name="com.onevizion" level="INFO" />
+    <logger name="com.onevizion" level="DEBUG" />
 </configuration>

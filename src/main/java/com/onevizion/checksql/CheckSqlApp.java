@@ -43,7 +43,7 @@ public class CheckSqlApp {
         try {
             executor.run(configuration);
         } catch (Exception e) {
-            logger.error("Unexpected error", e);
+            logger.error(CheckSqlExecutor.INFO_MARKER, "Unexpected error", e);
         }
     }
 
@@ -69,7 +69,8 @@ public class CheckSqlApp {
             return ctx;
         } catch (Exception e) {
             if (logger == null) {
-                // Exception thrown before logger were instantiated, schema name is unknown
+                // Exception thrown before logger were instantiated, schema name
+                // is unknown
                 System.setProperty("schema", "UNKNOWN");
                 logger = LoggerFactory.getLogger(this.getClass());
             }
@@ -114,7 +115,8 @@ public class CheckSqlApp {
         return ctx;
     }
 
-    private static void configDataSource(PoolDataSource ds, String[] cnnProps, String programName, boolean isLocal, boolean isOwner) {
+    private static void configDataSource(PoolDataSource ds, String[] cnnProps, String programName, boolean isLocal,
+            boolean isOwner) {
         try {
             ds.setUser(cnnProps[0]);
             ds.setPassword(cnnProps[1]);
