@@ -23,7 +23,7 @@
             </props>
         </property>
     </bean>
-    
+
     <bean id="owner1JdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
         <constructor-arg ref="owner1DataSource" />
     </bean>
@@ -43,16 +43,15 @@
             </props>
         </property>
     </bean>
-    
+
     <bean id="test1JdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
         <constructor-arg ref="test1DataSource" />
     </bean> 
-    
-    <bean id="test1NamedParamJdbcTemplate"
-        class="org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate">
+
+    <bean id="test1NamedParamJdbcTemplate" class="org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate">
         <constructor-arg ref="test1DataSource" />
     </bean>
-    
+
     <!--============================== JDBC DataSource OWNER ==============================-->
     <bean id="owner2DataSource" class="oracle.ucp.jdbc.PoolDataSourceFactory" factory-method="getPoolDataSource">
         <property name="connectionFactoryClassName" value="oracle.jdbc.pool.OracleDataSource" />
@@ -68,11 +67,11 @@
             </props>
         </property>
     </bean>
-    
+
     <bean id="owner2JdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
         <constructor-arg ref="owner2DataSource" />
     </bean>
-    
+
     <!--============================== JDBC DataSource _TEST2 ==============================-->
     <bean id="test2DataSource" class="oracle.ucp.jdbc.PoolDataSourceFactory" factory-method="getPoolDataSource">
         <property name="connectionFactoryClassName" value="oracle.jdbc.pool.OracleDataSource" />
@@ -88,13 +87,12 @@
             </props>
         </property>
     </bean>
-    
+
     <bean id="test2JdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
         <constructor-arg ref="test2DataSource" />
     </bean> 
-    
-    <bean id="test2NamedParamJdbcTemplate"
-        class="org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate">
+
+    <bean id="test2NamedParamJdbcTemplate" class="org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate">
         <constructor-arg ref="test2DataSource" />
     </bean>
 
