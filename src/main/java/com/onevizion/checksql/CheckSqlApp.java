@@ -20,44 +20,32 @@ public class CheckSqlApp {
 
     private static final String DB_CNN_PROPS_ERROR_MESSAGE = "DB connection properties should be specified in following format: <username>/<password>@<host>:<port>:<SID>";
 
-    public static final String JDBC_THIN_URL_PREFIX = "jdbc:oracle:thin:@";
+    private static final String JDBC_THIN_URL_PREFIX = "jdbc:oracle:thin:@";
 
-    private static final String ARGS_ERROR_MESSAGE = "Expected command line arguments: <version_mode> <remote_owner>/<remote_owner_pwd>@<remote_owner_connect_identifier> <remote_user>/<remote_user_pwd>@<remote_user_connect_identifier> [<local_owner>/<local_owner_pwd>@<local_owner_connect_identifier> <local_user>/<local_user_pwd>@<local_user_connect_identifier>]";
+    private static final String ARGS_ERROR_MESSAGE = "Expected command line arguments: <remote_owner>/<remote_owner_pwd>@<remote_owner_connect_identifier> <remote_user>/<remote_user_pwd>@<remote_user_connect_identifier> [<local_owner>/<local_owner_pwd>@<local_owner_connect_identifier> <local_user>/<local_user_pwd>@<local_user_connect_identifier>]";
 
     public static void main(String[] args) {
         CheckSqlApp app = new CheckSqlApp();
 
         ApplicationContext ctx = app.getAppContext("com/onevizion/checksql/beans.xml", args);
 
-        Long versionMode = Long.valueOf(args[0]);
+        configDataSource((PoolDataSource) ctx.getBean("owner1DataSource"), parseDbCnnStr(args[0]), "check-sql_owner1", false, true);
+        configDataSource((PoolDataSource) ctx.getBean("test1DataSource"), parseDbCnnStr(args[1]), "check-sql_test1", false, false);
 
-        String[] ownerCnnProps = parseDbCnnStr(args[1]);
-        configDataSource((PoolDataSource) ctx.getBean("owner1DataSource"), ownerCnnProps, "check-sql_owner1", false,
-                true);
-
-        String[] test1CnnProps = parseDbCnnStr(args[2]);
-        configDataSource((PoolDataSource) ctx.getBean("test1DataSource"), test1CnnProps, "check-sql_test1", false,
-                false);
-
-        if (args.length == 5) {
-            String[] owner2CnnProps = parseDbCnnStr(args[3]);
-            configDataSource((PoolDataSource) ctx.getBean("owner2DataSource"), owner2CnnProps, "check-sql_owner2", true,
-                    true);
-
-            String[] test2CnnProps = parseDbCnnStr(args[4]);
-            configDataSource((PoolDataSource) ctx.getBean("test2DataSource"), test2CnnProps, "check-sql_test2", true,
-                    false);
+        if (args.length == 4) {
+            configDataSource((PoolDataSource) ctx.getBean("owner2DataSource"), parseDbCnnStr(args[2]), "check-sql_owner2", true, true);
+            configDataSource((PoolDataSource) ctx.getBean("test2DataSource"), parseDbCnnStr(args[3]), "check-sql_test2", true, false);
         }
 
         CheckSqlExecutor executor = ctx.getBean(CheckSqlExecutor.class);
         try {
-            executor.run(versionMode, args.length == 5);
+            executor.run(args.length == 4);
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }
     }
 
-    public static String[] parseDbCnnStr(String cnnStr) {
+    private static String[] parseDbCnnStr(String cnnStr) {
         Pattern p = Pattern.compile("(.+?)/(.+?)@(.+)");
         Matcher m = p.matcher(cnnStr);
         String[] props = new String[3];
@@ -71,17 +59,15 @@ public class CheckSqlApp {
         return props;
     }
 
-    public ApplicationContext getAppContext(String beansXmlClassPath, String[] args) {
+    private ApplicationContext getAppContext(String beansXmlClassPath, String[] args) {
         try {
             checkArgsAndThrow(args);
             configLogger(args);
             ApplicationContext ctx = configAppContext(beansXmlClassPath, args);
             return ctx;
-
         } catch (Exception e) {
             if (logger == null) {
-                // Exception thrown before logger were instantiated, schema name
-                // is unknown
+                // Exception thrown before logger were instantiated, schema name is unknown
                 System.setProperty("schema", "UNKNOWN");
                 logger = LoggerFactory.getLogger(this.getClass());
             }
@@ -93,8 +79,8 @@ public class CheckSqlApp {
         }
     }
 
-    protected void configLogger(String[] args) {
-        String[] cnnProps = parseDbCnnStr(args[1]);
+    private void configLogger(String[] args) {
+        String[] cnnProps = parseDbCnnStr(args[0]);
 
         // System property to be used by logger
         String schema = cnnProps[0] + "." + cnnProps[2].split("@")[1].split("\\.")[0];
@@ -103,35 +89,25 @@ public class CheckSqlApp {
     }
 
     private void checkArgsAndThrow(String[] args) throws IllegalArgumentException {
-        if (args.length < 3 || args.length != 5) {
+        if (args.length != 2 && args.length != 4) {
             throw new IllegalArgumentException(ARGS_ERROR_MESSAGE);
         }
 
-        if (!"0".equals(args[0]) && !"1".equals(args[0])) {
-            throw new IllegalArgumentException(ARGS_ERROR_MESSAGE);
-        }
-
+        parseDbCnnStr(args[0]);
         parseDbCnnStr(args[1]);
-        parseDbCnnStr(args[2]);
 
-        if (args.length == 5) {
+        if (args.length == 4) {
+            parseDbCnnStr(args[2]);
             parseDbCnnStr(args[3]);
-            parseDbCnnStr(args[4]);
         }
     }
 
     private ApplicationContext configAppContext(String beansXmlClassPath, String[] args) {
-        String[] cnnProps = parseDbCnnStr(args[1]);
-        System.setProperty("username", cnnProps[0]);
-        System.setProperty("password", cnnProps[1]);
-        System.setProperty("url", cnnProps[2]);
-
         ApplicationContext ctx = new ClassPathXmlApplicationContext("classpath:" + beansXmlClassPath);
         return ctx;
     }
 
-    protected static void configDataSource(
-            PoolDataSource ds, String[] cnnProps, String programName, boolean isLocal, boolean isOwner) {
+    private static void configDataSource(PoolDataSource ds, String[] cnnProps, String programName, boolean isLocal, boolean isOwner) {
         try {
             ds.setUser(cnnProps[0]);
             ds.setPassword(cnnProps[1]);
@@ -144,12 +120,22 @@ public class CheckSqlApp {
             }
             props.setProperty(OracleConnection.CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM, programName);
             ds.setConnectionProperties(props);
-            logger.info("The data source is configured: " + (isLocal ? (isOwner ? "local_owner=" : "local_user=")
-                    : (isOwner ? "remote_owner=" : "remote_user=")) + ds.getUser()
-                    + ", url=" + ds.getURL());
+            if (isLocal) {
+                if (isOwner) {
+                    logger.info("The data source is configured: local_owner=" + ds.getUser() + ", url=" + ds.getURL());
+                } else {
+                    logger.info("The data source is configured: local_user=" + ds.getUser() + ", url=" + ds.getURL());
+                }
+            } else {
+                if (isOwner) {
+                    logger.info("The data source is configured: remote_owner=" + ds.getUser() + ", url=" + ds.getURL());
+                } else {
+                    logger.info("The data source is configured: remote_user=" + ds.getUser() + ", url=" + ds.getURL());
+                }
+            }
         } catch (SQLException e) {
             logger.warn("Can't set connection properties", e);
         }
-
     }
+
 }
