@@ -9,7 +9,7 @@
         <disable-tables>config_field,excel_orch_mapping,imp_entity_req_field,notif,report_lookup,report_sql,tm_setup,xitor_req_field,imp_data_map,imp_entity,rule_class_param_value,imp_spec,rule,wf_step,wf_template_step</disable-tables>
     </sql>
     <pl_sql>
-        <enabled>false</enabled>
+        <enabled>true</enabled>
         <disable-tables>config_field,excel_orch_mapping,imp_entity_req_field,notif,report_lookup,report_sql,tm_setup,xitor_req_field,imp_data_map,imp_entity,rule_class_param_value,imp_spec,rule,wf_step,wf_template_step</disable-tables>
     </pl_sql>
 </root>
