@@ -12,6 +12,8 @@ import org.slf4j.MDC;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
+import com.onevizion.checksql.exception.AppStartupException;
+
 import oracle.jdbc.driver.OracleConnection;
 import oracle.ucp.jdbc.PoolDataSource;
 

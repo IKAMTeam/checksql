@@ -10,6 +10,9 @@ import org.jdom2.Document;
 import org.jdom2.JDOMException;
 import org.jdom2.input.SAXBuilder;
 
+import com.onevizion.checksql.exception.UnexpectedException;
+import com.onevizion.checksql.exception.XmlConfException;
+
 public class XmlConfUtils {
 
     public static Document getDoc(String fileName) {

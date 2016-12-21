@@ -1,4 +1,4 @@
-package com.onevizion.checksql;
+package com.onevizion.checksql.exception;
 
 public class UnexpectedException extends OnevizionException {
 
