@@ -38,7 +38,6 @@ import com.onevizion.checksql.vo.SelectQuery;
 import com.onevizion.checksql.vo.SqlError;
 
 import gudusoft.gsqlparser.TGSqlParser;
-import oracle.jdbc.pool.OracleDataSource;
 import oracle.ucp.jdbc.PoolDataSourceImpl;
 
 @Component
@@ -149,44 +148,46 @@ public class CheckSqlExecutor {
 
     private Long getRandomTest1Pid() {
         Long pid = null;
+        Exception e = null;
         try {
             pid = owner1JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_OLD, Long.class);
-        } catch (DataAccessException e) {
-            // TODO log error or catch ORA-00942
+        } catch (DataAccessException e1) {
+            e = e1;
         }
 
         if (pid == null) {
             try {
                 pid = owner1JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_NEW, Long.class);
-            } catch (DataAccessException e) {
-                // TODO log error or catch ORA-00942
+            } catch (DataAccessException e1) {
+                e = e1;
             }
         }
 
         if (pid == null) {
-            throw new UnexpectedException("[Test1] Can not get a PROGRAM_ID");
+            throw new UnexpectedException("[Test1] Can not get a PROGRAM_ID", e);
         }
         return pid;
     }
 
     private Long getRandomTest2Pid() {
         Long pid = null;
+        Exception e = null;
         try {
             pid = owner2JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_OLD, Long.class);
-        } catch (DataAccessException e) {
-            // TODO log error or catch ORA-00942
+        } catch (DataAccessException e1) {
+            e = e1;
         }
 
         if (pid == null) {
             try {
                 pid = owner2JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_NEW, Long.class);
-            } catch (DataAccessException e) {
-                // TODO log error or catch ORA-00942
+            } catch (DataAccessException e1) {
+                e = e1;
             }
         }
 
         if (pid == null) {
-            throw new UnexpectedException("[Test2] Can not get a PROGRAM_ID");
+            throw new UnexpectedException("[Test2] Can not get a PROGRAM_ID", e);
         }
         return pid;
     }

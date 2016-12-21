@@ -44,16 +44,12 @@ public class CheckSqlApp {
 
         ApplicationContext ctx = app.getAppContext("com/onevizion/checksql/beans.xml", configuration);
 
-        configDataSource((PoolDataSource) ctx.getBean("owner1DataSource"),
-                parseDbCnnStr(configuration.getRemoteOwner()), "check-sql_owner1", false, true);
-        configDataSource((PoolDataSource) ctx.getBean("test1DataSource"), parseDbCnnStr(configuration.getRemoteUser()),
-                "check-sql_test1", false, false);
+        configDataSource((PoolDataSource) ctx.getBean("owner1DataSource"),parseDbCnnStr(configuration.getRemoteOwner()), "check-sql_owner1", false, true);
+        configDataSource((PoolDataSource) ctx.getBean("test1DataSource"), parseDbCnnStr(configuration.getRemoteUser()), "check-sql_test1", false, false);
 
         if (configuration.isUseSecondTest()) {
-            configDataSource((PoolDataSource) ctx.getBean("owner2DataSource"),
-                    parseDbCnnStr(configuration.getLocalOwner()), "check-sql_owner2", true, true);
-            configDataSource((PoolDataSource) ctx.getBean("test2DataSource"),
-                    parseDbCnnStr(configuration.getLocalUser()), "check-sql_test2", true, false);
+            configDataSource((PoolDataSource) ctx.getBean("owner2DataSource"), parseDbCnnStr(configuration.getLocalOwner()), "check-sql_owner2", true, true);
+            configDataSource((PoolDataSource) ctx.getBean("test2DataSource"), parseDbCnnStr(configuration.getLocalUser()), "check-sql_test2", true, false);
         }
 
         CheckSqlExecutor executor = ctx.getBean(CheckSqlExecutor.class);
@@ -114,8 +110,7 @@ public class CheckSqlApp {
         }
 
         if ((StringUtils.isNotBlank(configuration.getLocalOwner()) && StringUtils.isBlank(configuration.getLocalUser()))
-                || (StringUtils.isBlank(configuration.getLocalOwner())
-                        && StringUtils.isNotBlank(configuration.getLocalUser()))) {
+                || (StringUtils.isBlank(configuration.getLocalOwner()) && StringUtils.isNotBlank(configuration.getLocalUser()))) {
             throw new IllegalArgumentException("both local_owner and local_user should set or nothing");
         }
 
