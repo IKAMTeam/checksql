@@ -10,6 +10,8 @@ import org.jdom2.filter.Filters;
 import org.jdom2.xpath.XPathExpression;
 import org.jdom2.xpath.XPathFactory;
 
+import com.onevizion.checksql.vo.Configuration;
+
 public class ConfigurationUtils {
 
     public static Configuration loadConfiguration(Document doc) {

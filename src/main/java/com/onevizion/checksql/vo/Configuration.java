@@ -1,4 +1,4 @@
-package com.onevizion.checksql;
+package com.onevizion.checksql.vo;
 
 import java.util.List;
 

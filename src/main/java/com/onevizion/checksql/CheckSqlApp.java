@@ -13,6 +13,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 import com.onevizion.checksql.exception.AppStartupException;
+import com.onevizion.checksql.vo.Configuration;
 
 import oracle.jdbc.driver.OracleConnection;
 import oracle.ucp.jdbc.PoolDataSource;

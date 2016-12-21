@@ -30,6 +30,11 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
 import org.springframework.stereotype.Component;
 
+import com.onevizion.checksql.vo.Configuration;
+import com.onevizion.checksql.vo.PlsqlBlock;
+import com.onevizion.checksql.vo.SelectQuery;
+import com.onevizion.checksql.vo.SqlError;
+
 import gudusoft.gsqlparser.TGSqlParser;
 
 @Component

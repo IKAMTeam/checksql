@@ -1,4 +1,4 @@
-package com.onevizion.checksql;
+package com.onevizion.checksql.vo;
 
 public class SqlError {
 
