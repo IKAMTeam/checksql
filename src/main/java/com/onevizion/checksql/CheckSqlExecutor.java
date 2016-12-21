@@ -353,7 +353,7 @@ public class CheckSqlExecutor {
                 logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} - Check is disabled", plsql.getOrdNum(), tableNums);
                 continue;
             }
-            if (config.getSkipTablesSql().contains(plsql.getTableName())) {
+            if (config.getSkipTablesPlSql().contains(plsql.getTableName())) {
                 logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} is skipped", plsql.getOrdNum(), tableNums);
                 continue;
             }
