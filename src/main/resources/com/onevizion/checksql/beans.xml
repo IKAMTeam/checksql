@@ -8,13 +8,15 @@
         http://www.springframework.org/schema/context
         http://www.springframework.org/schema/context/spring-context-3.2.xsd">
 
+    <bean id="connectionLabelingCallback" class="com.onevizion.checksql.support.ConnectionLabelingCallback" />
+
     <!--============================== JDBC DataSource OWNER ==============================-->
     <bean id="owner1DataSource" class="oracle.ucp.jdbc.PoolDataSourceFactory" factory-method="getPoolDataSource">
         <property name="connectionFactoryClassName" value="oracle.jdbc.pool.OracleDataSource" />
         <property name="connectionPoolName" value="OnevizionPool_check-sql_owner1" />
-        <property name="initialPoolSize" value="2" />
-        <property name="minPoolSize" value="2" />
-        <property name="maxPoolSize" value="5" />
+        <property name="initialPoolSize" value="1" />
+        <property name="minPoolSize" value="1" />
+        <property name="maxPoolSize" value="1" />
         <property name="inactiveConnectionTimeout" value="0" />
         <property name="maxStatements" value="0" />
         <property name="connectionProperties">
@@ -32,9 +34,9 @@
     <bean id="test1DataSource" class="oracle.ucp.jdbc.PoolDataSourceFactory" factory-method="getPoolDataSource">
         <property name="connectionFactoryClassName" value="oracle.jdbc.pool.OracleDataSource" />
         <property name="connectionPoolName" value="OnevizionPool_check-sql_test1" />
-        <property name="initialPoolSize" value="2" />
-        <property name="minPoolSize" value="2" />
-        <property name="maxPoolSize" value="5" />
+        <property name="initialPoolSize" value="1" />
+        <property name="minPoolSize" value="1" />
+        <property name="maxPoolSize" value="1" />
         <property name="inactiveConnectionTimeout" value="0" />
         <property name="maxStatements" value="0" />
         <property name="connectionProperties">
@@ -43,6 +45,11 @@
             </props>
         </property>
     </bean>
+    
+    <bean class="org.springframework.beans.factory.config.MethodInvokingFactoryBean" 
+        p:target-object-ref="test1DataSource"
+        p:target-method="registerConnectionLabelingCallback"
+        p:arguments-ref="connectionLabelingCallback" />
 
     <bean id="test1JdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
         <constructor-arg ref="test1DataSource" />
@@ -56,9 +63,9 @@
     <bean id="owner2DataSource" class="oracle.ucp.jdbc.PoolDataSourceFactory" factory-method="getPoolDataSource">
         <property name="connectionFactoryClassName" value="oracle.jdbc.pool.OracleDataSource" />
         <property name="connectionPoolName" value="OnevizionPool_check-sql_owner2" />
-        <property name="initialPoolSize" value="2" />
-        <property name="minPoolSize" value="2" />
-        <property name="maxPoolSize" value="5" />
+        <property name="initialPoolSize" value="1" />
+        <property name="minPoolSize" value="1" />
+        <property name="maxPoolSize" value="1" />
         <property name="inactiveConnectionTimeout" value="0" />
         <property name="maxStatements" value="0" />
         <property name="connectionProperties">
@@ -76,9 +83,9 @@
     <bean id="test2DataSource" class="oracle.ucp.jdbc.PoolDataSourceFactory" factory-method="getPoolDataSource">
         <property name="connectionFactoryClassName" value="oracle.jdbc.pool.OracleDataSource" />
         <property name="connectionPoolName" value="OnevizionPool_check-sql_test2" />
-        <property name="initialPoolSize" value="0" />
-        <property name="minPoolSize" value="2" />
-        <property name="maxPoolSize" value="5" />
+        <property name="initialPoolSize" value="1" />
+        <property name="minPoolSize" value="1" />
+        <property name="maxPoolSize" value="1" />
         <property name="inactiveConnectionTimeout" value="0" />
         <property name="maxStatements" value="0" />
         <property name="connectionProperties">
@@ -87,6 +94,11 @@
             </props>
         </property>
     </bean>
+    
+    <bean class="org.springframework.beans.factory.config.MethodInvokingFactoryBean" 
+        p:target-object-ref="test2DataSource"
+        p:target-method="registerConnectionLabelingCallback"
+        p:arguments-ref="connectionLabelingCallback" />
 
     <bean id="test2JdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
         <constructor-arg ref="test2DataSource" />
@@ -99,5 +111,7 @@
     <tx:annotation-driven />
 
     <context:component-scan base-package="com.onevizion.checksql" />
+    
+    <bean id="appSettings" class="com.onevizion.checksql.vo.AppSettings" />
 
 </beans>

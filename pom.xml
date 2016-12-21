@@ -13,10 +13,10 @@
   </properties>
 
   <dependencies>
-
+    
     <dependency>
-        <groupId>oracle</groupId>
-        <artifactId>oracle-ucp-jdbc</artifactId>
+        <groupId>com.oracle.jdbc</groupId>
+        <artifactId>ucp</artifactId>
         <version>12.1.0.2</version>
     </dependency>
 

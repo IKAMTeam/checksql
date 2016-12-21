@@ -30,12 +30,16 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
 import org.springframework.stereotype.Component;
 
+import com.onevizion.checksql.exception.UnexpectedException;
+import com.onevizion.checksql.vo.AppSettings;
 import com.onevizion.checksql.vo.Configuration;
 import com.onevizion.checksql.vo.PlsqlBlock;
 import com.onevizion.checksql.vo.SelectQuery;
 import com.onevizion.checksql.vo.SqlError;
 
 import gudusoft.gsqlparser.TGSqlParser;
+import oracle.jdbc.pool.OracleDataSource;
+import oracle.ucp.jdbc.PoolDataSourceImpl;
 
 @Component
 public class CheckSqlExecutor {
@@ -58,7 +62,8 @@ public class CheckSqlExecutor {
     @Resource(name = "test2NamedParamJdbcTemplate")
     private NamedParameterJdbcTemplate test2NamedParamJdbcTemplate;
 
-    private static final String SET_PID = "call pkg_sec.set_pid(?)";
+    @Resource
+    private AppSettings appSettings;
 
     private static final String FIND_IMP_DATA_TYPE_PARAM_SQL_PARAM_BY_IMP_DATA_TYPE_ID = "select sql_parameter from imp_data_type_param where imp_data_type_id = ?";
 
@@ -112,6 +117,8 @@ public class CheckSqlExecutor {
     public void run(Configuration config) {
         logger.info(INFO_MARKER, "SQL Checker is started");
 
+        configAppSettings(config);
+
         if (config.isEnabledSql()) {
             executeQueries(config);
         } else {
@@ -124,6 +131,64 @@ public class CheckSqlExecutor {
         }
         logSqlErrors();
         logger.info(INFO_MARKER, "SQL Checker is completed");
+    }
+
+    private void configAppSettings(Configuration config) {
+        appSettings.setTest1Pid(getRandomTest1Pid());
+
+        PoolDataSourceImpl test1DataSource = (PoolDataSourceImpl) test1JdbcTemplate.getDataSource();
+        appSettings.setTest1Schema(test1DataSource.getUser());
+
+        if (config.isUseSecondTest()) {
+            appSettings.setTest2Pid(getRandomTest2Pid());
+
+            PoolDataSourceImpl test2DataSource = (PoolDataSourceImpl) test2JdbcTemplate.getDataSource();
+            appSettings.setTest2Schema(test2DataSource.getUser());
+        }
+    }
+
+    private Long getRandomTest1Pid() {
+        Long pid = null;
+        try {
+            pid = owner1JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_OLD, Long.class);
+        } catch (DataAccessException e) {
+            // TODO log error or catch ORA-00942
+        }
+
+        if (pid == null) {
+            try {
+                pid = owner1JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_NEW, Long.class);
+            } catch (DataAccessException e) {
+                // TODO log error or catch ORA-00942
+            }
+        }
+
+        if (pid == null) {
+            throw new UnexpectedException("[Test1] Can not get a PROGRAM_ID");
+        }
+        return pid;
+    }
+
+    private Long getRandomTest2Pid() {
+        Long pid = null;
+        try {
+            pid = owner2JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_OLD, Long.class);
+        } catch (DataAccessException e) {
+            // TODO log error or catch ORA-00942
+        }
+
+        if (pid == null) {
+            try {
+                pid = owner2JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_NEW, Long.class);
+            } catch (DataAccessException e) {
+                // TODO log error or catch ORA-00942
+            }
+        }
+
+        if (pid == null) {
+            throw new UnexpectedException("[Test2] Can not get a PROGRAM_ID");
+        }
+        return pid;
     }
 
     private void logSqlErrors() {
@@ -196,32 +261,6 @@ public class CheckSqlExecutor {
             List<String> sqlDataCols = SqlParser.getCols(sql);
             String entityIdColName = sqlDataCols.get(0);
             String sqlColName = sqlDataCols.get(1);
-            if (config.isUseSecondTest()) {
-                setRandomProgramIdForTest2();
-                if (sqlError != null) {
-                    // setRandomProgramIdForTest1();
-                    // if (sqlError != null) {
-                    sqlError.setTableName(tableName);
-                    sqlError.setEntityIdColName(entityIdColName);
-                    sqlError.setSqlColName(sqlColName);
-                    sqlErrors.add(sqlError);
-                    logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Test 2 - Setting PID error [{}]", sel.getOrdNum(),
-                            tableNums, sqlError.toString());
-                    continue;
-                    // }
-                }
-            } else {
-                setRandomProgramIdForTest1();
-                if (sqlError != null) {
-                    sqlError.setTableName(tableName);
-                    sqlError.setEntityIdColName(entityIdColName);
-                    sqlError.setSqlColName(sqlColName);
-                    sqlErrors.add(sqlError);
-                    logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Test 1 - Setting PID error [{}]",
-                            sel.getOrdNum(), tableNums, sqlError.toString());
-                    continue;
-                }
-            }
 
             boolean isEmptyTable = true;
             while (sqlRowSet.next()) {
@@ -276,50 +315,6 @@ public class CheckSqlExecutor {
                     String sqlWoutPlaceholder = new String(replacedImpVars);
                     if (sqlWoutPlaceholder.contains("?")) {
                         sqlWoutPlaceholder = sqlWoutPlaceholder.replace("?", ":p");
-                    }
-                    if (sqlDataCols.size() == 3) {
-                        if (config.isUseSecondTest()) {
-                            setProgramIdForTest2(sqlRowSet);
-                            if (sqlError != null) {
-                                // setProgramIdForTest1(sqlRowSet);
-                                // if (sqlError != null) {
-                                sqlError.setTableName(tableName);
-                                sqlError.setEntityIdColName(entityIdColName);
-                                sqlError.setSqlColName(sqlColName);
-                                sqlError.setEntityId(entityId);
-                                sqlErrors.add(sqlError);
-                                // TODO - where should I output this log?
-                                // (skremnev)
-                                // logger.info(INFO_MARKER,
-                                // "Phase [SELECT] Table [{}] Rows[{}] Row[{}]
-                                // Test[2] Setting PID error [{}]",
-                                // sel.getTableName(),
-                                // sqlRowSet.getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                                // sqlRowSet.getRow(),
-                                // sqlError.toString());
-                                continue;
-                                // }
-                            }
-                        } else {
-                            setProgramIdForTest1(sqlRowSet);
-                            if (sqlError != null) {
-                                sqlError.setTableName(tableName);
-                                sqlError.setEntityIdColName(entityIdColName);
-                                sqlError.setSqlColName(sqlColName);
-                                sqlError.setEntityId(entityId);
-                                sqlErrors.add(sqlError);
-                                // TODO - where should I output this log?
-                                // (skremnev)
-                                // logger.info(INFO_MARKER,
-                                // "Phase [SELECT] Table [{}] Rows [{}] Row[{}]
-                                // Test[1] Setting PID error [{}]",
-                                // sel.getTableName(),
-                                // sqlRowSet.getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                                // sqlRowSet.getRow(),
-                                // sqlError.toString());
-                                continue;
-                            }
-                        }
                     }
 
                     String preparedSql = SqlParser.removeIntoClause(sqlWoutPlaceholder);
@@ -697,86 +692,6 @@ public class CheckSqlExecutor {
         return ddl.toString();
     }
 
-    private boolean setRandomProgramIdForTest1() {
-        Long pid = null;
-
-        try {
-            pid = owner1JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_OLD, Long.class);
-        } catch (DataAccessException e) {
-            // TODO log error or catch ORA-00942
-        }
-
-        if (pid == null) {
-            try {
-                pid = owner1JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_NEW, Long.class);
-            } catch (DataAccessException e) {
-                // TODO log error or catch ORA-00942
-            }
-        }
-
-        if (pid == null) {
-
-        }
-
-        // if (remoteVersion.equals(1L)) {
-        // pid =
-        // owner1JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_NEW,
-        // Long.class);
-        // } else {
-        // pid =
-        // owner1JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_OLD,
-        // Long.class);
-        // }
-        try {
-            test1JdbcTemplate.update(SET_PID, pid);
-        } catch (DataAccessException e1) {
-            sqlError = new SqlError("(RND)PKG_SEC.SET_PID-1");
-            sqlError.setErrMsg(e1.getMessage());
-            return false;
-        }
-        return true;
-    }
-
-    private boolean setRandomProgramIdForTest2() {
-        Long pid = null;
-
-        try {
-            pid = owner2JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_OLD, Long.class);
-        } catch (DataAccessException e) {
-            // TODO log error or catch ORA-00942
-        }
-
-        if (pid == null) {
-            try {
-                pid = owner2JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_NEW, Long.class);
-            } catch (DataAccessException e) {
-                // TODO log error or catch ORA-00942
-            }
-        }
-
-        if (pid == null) {
-
-        }
-
-        // if (localVersion.equals(1L)) {
-        // pid =
-        // owner2JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_NEW,
-        // Long.class);
-        // } else {
-        // pid =
-        // owner2JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_OLD,
-        // Long.class);
-        // }
-        try {
-            test2JdbcTemplate.update(SET_PID, pid);
-        } catch (DataAccessException e1) {
-            sqlError = new SqlError("(RND)PKG_SEC.SET_PID-2");
-            sqlError.setErrMsg(e1.getMessage());
-            return false;
-        }
-        return true;
-    }
-
     private boolean testSelectQuery(String sql, Configuration configuration) {
         String limitedSql = "select * from (\r\n" + sql + "\r\n) where rownum = 1";
         TGSqlParser pareparedSqlParser = SqlParser.getParser(limitedSql);
@@ -821,30 +736,6 @@ public class CheckSqlExecutor {
         newSql = newSql.replaceAll("\\[DATE_FORMAT\\]", "p");
         newSql = newSql.replaceAll("\\[COLUMN_NAME\\]", "p");
         return newSql;
-    }
-
-    private boolean setProgramIdForTest1(SqlRowSet sqlRowSet) {
-        Long pid = sqlRowSet.getLong(1);
-        try {
-            test1JdbcTemplate.update(SET_PID, pid);
-        } catch (DataAccessException e1) {
-            sqlError = new SqlError("PKG_SEC.SET_PID-1");
-            sqlError.setErrMsg(e1.getMessage());
-            return false;
-        }
-        return true;
-    }
-
-    private boolean setProgramIdForTest2(SqlRowSet sqlRowSet) {
-        Long pid = sqlRowSet.getLong(1);
-        try {
-            test2JdbcTemplate.update(SET_PID, pid);
-        } catch (DataAccessException e1) {
-            sqlError = new SqlError("PKG_SEC.SET_PID-2");
-            sqlError.setErrMsg(e1.getMessage());
-            return false;
-        }
-        return true;
     }
 
     private Map<String, Object> getSqlParamMap(TGSqlParser parser) {
