@@ -13,7 +13,7 @@ public class SqlError {
     private String errMsg;
     private String errType;
     private String originalQuery;
-    
+
     public String toShortString() {
         StringBuilder msg = new StringBuilder(LINE_DELIMITER);
         msg.append("[");
@@ -66,16 +66,44 @@ public class SqlError {
             msg.append("]");
         }
         msg.append(LINE_DELIMITER);
-        if (tableName != null && (!tableName.trim().isEmpty()) && sqlColName != null && (!sqlColName.trim().isEmpty())
+
+        boolean isGenerateUpdateScript = tableName != null
+                && (!tableName.trim().isEmpty()) && sqlColName != null && (!sqlColName.trim().isEmpty())
                 && entityIdColName != null && (!entityIdColName.trim().isEmpty()) && entityId != null
-                && (!entityId.trim().isEmpty())) {
+                && (!entityId.trim().isEmpty());
+        if (isGenerateUpdateScript) {
             msg.append("~~~~~~~~~~~~~~~~~~~");
             msg.append(LINE_DELIMITER);
-            msg.append("update ");
+            msg.append("set define off");
+            msg.append(LINE_DELIMITER);
+            msg.append("declare");
+            msg.append(LINE_DELIMITER);
+            msg.append("  v_var varchar2(30000) := q'ææ';");
+            msg.append(LINE_DELIMITER);
+            msg.append("begin");
+            msg.append(LINE_DELIMITER);
+            msg.append("  update ");
             msg.append(tableName);
             msg.append(" set ");
             msg.append(sqlColName);
-            msg.append(" = q'[]'");
+            msg.append(" = v_var");
+            msg.append(LINE_DELIMITER);
+            msg.append("  where ");
+            msg.append(entityIdColName);
+            msg.append(" = ");
+            msg.append(entityId);
+            msg.append(";");
+            msg.append(LINE_DELIMITER);
+            msg.append("end;");
+            msg.append(LINE_DELIMITER);
+            msg.append("/");
+            msg.append(LINE_DELIMITER);
+            msg.append(LINE_DELIMITER);
+            msg.append("select ");
+            msg.append(sqlColName);
+            msg.append(LINE_DELIMITER);
+            msg.append("from ");
+            msg.append(tableName);
             msg.append(LINE_DELIMITER);
             msg.append("where ");
             msg.append(entityIdColName);
