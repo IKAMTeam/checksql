@@ -278,14 +278,7 @@ public class CheckSqlExecutor {
                     sqlError.setEntityIdColName(entityIdColName);
                     sqlError.setSqlColName(sqlColName);
                     sqlError.setEntityId(entityId);
-                    sqlErrors.add(sqlError);
-                    // TODO - where should I output this log? (skremnev)
-                    // logger.info(INFO_MARKER,
-                    // "Phase [SELECT] Table [{}] Rows [{}] Row[{}] Getting
-                    // entity SQL error [{}]",
-                    // sel.getTableName(),
-                    // sqlRowSet.getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                    // sqlRowSet.getRow(), sqlError.toString());
+                    logSqlError(sqlError);
                     continue;
                 }
 
@@ -302,14 +295,7 @@ public class CheckSqlExecutor {
                     sqlError.setEntityId(entityId);
                     sqlError.setQuery(replacedImpVars);
                     sqlError.setOriginalQuery(entitySql);
-                    sqlErrors.add(sqlError);
-                    // TODO - where should I output this log? (skremnev)
-                    // logger.info(INFO_MARKER,
-                    // "Phase [SELECT] Table [{}] Rows[{}] Row[{}] Parsing error
-                    // after import variable replacing [{}]",
-                    // sel.getTableName(),
-                    // sqlRowSet.getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                    // sqlRowSet.getRow(), sqlError.toString());
+                    logSqlError(sqlError);
                     continue;
                 }
                 if (SqlParser.isSelectStatement(parser)) {
@@ -328,8 +314,7 @@ public class CheckSqlExecutor {
                         sqlError.setEntityId(entityId);
                         sqlError.setQuery(preparedSql);
                         sqlError.setOriginalQuery(entitySql);
-                        sqlErrors.add(sqlError);
-                        logger.info(DATA_MARKER, "{}", sqlError.toString());
+                        logSqlError(sqlError);
                         continue;
                     }
                 }
@@ -338,6 +323,11 @@ public class CheckSqlExecutor {
                 logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row 0/0", sel.getOrdNum(), tableNums);
             }
         }
+    }
+
+    private void logSqlError(SqlError sqlError) {
+        logger.info(DATA_MARKER, "{}", sqlError.toString());
+        sqlErrors.add(sqlError);
     }
 
     private void testPlsql(Configuration config) {
@@ -367,8 +357,7 @@ public class CheckSqlExecutor {
                 sqlError.setTableName(tableName);
                 sqlErrors.add(sqlError);
                 logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} - Getting data error [{}]", plsql.getOrdNum(),
-                        tableNums,
-                        sqlError.toString());
+                        tableNums, sqlError.toString());
                 continue;
             }
 
@@ -388,13 +377,7 @@ public class CheckSqlExecutor {
                     sqlError.setEntityIdColName(entityIdColName);
                     sqlError.setSqlColName(sqlColName);
                     sqlError.setEntityId(entityId);
-                    sqlErrors.add(sqlError);
-                    // TODO - where should I output this log? (skremnev)
-                    // logger.info(INFO_MARKER, "Phase [PLSQL] Table [{}] Rows
-                    // [{}] Row[{}] Getting entity SQL error [{}]",
-                    // plsql.getTableName(),
-                    // sqlRowSet.getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                    // sqlRowSet.getRow(), sqlError.toString());
+                    logSqlError(sqlError);
                     continue;
                 }
 
@@ -411,14 +394,7 @@ public class CheckSqlExecutor {
                     sqlError.setErrMsg(e1.getMessage());
                     sqlError.setQuery(beginEndStatement);
                     sqlError.setOriginalQuery(entityBlock);
-                    sqlErrors.add(sqlError);
-                    // TODO - where should I output this log? (skremnev)
-                    // logger.info(INFO_MARKER,
-                    // "Phase [PLSQL] Table [{}] Rows [{}] Row[{}] Parsing PLSQL
-                    // block error [{}]",
-                    // plsql.getTableName(),
-                    // sqlRowSet.getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                    // sqlRowSet.getRow(), sqlError.toString());
+                    logSqlError(sqlError);
                     continue;
                 }
 
@@ -442,14 +418,7 @@ public class CheckSqlExecutor {
                         sqlError.setErrMsg(e2.getMessage());
                         sqlError.setQuery(wrappedBlockAsProc);
                         sqlError.setOriginalQuery(entityBlock);
-                        sqlErrors.add(sqlError);
-                        // TODO - where should I output this log? (skremnev)
-                        // logger.info(INFO_MARKER,
-                        // "Phase [PLSQL] Table [{}] Rows [{}] Row[{}] Test[2]
-                        // Creating proceduer error [{}]",
-                        // plsql.getTableName(),
-                        // sqlRowSet.getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                        // sqlRowSet.getRow(), sqlError.toString());
+                        logSqlError(sqlError);
                     }
                 } else {
                     try {
@@ -465,32 +434,9 @@ public class CheckSqlExecutor {
                         sqlError.setErrMsg(e.getMessage());
                         sqlError.setQuery(wrappedBlockAsProc);
                         sqlError.setOriginalQuery(entityBlock);
-                        sqlErrors.add(sqlError);
-                        // TODO - where should I output this log? (skremnev)
-                        // logger.info(INFO_MARKER,
-                        // "Phase [PLSQL] Table [{}] Rows [{}] Row[{}] Test [1]
-                        // Creating proceduer error [{}]",
-                        // plsql.getTableName(),
-                        // sqlRowSet.getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                        // sqlRowSet.getRow(), sqlError.toString());
+                        logSqlError(sqlError);
                     }
                 }
-
-                // try {
-                // isProc1Created = false;
-                // test1JdbcTemplate.update(wrappedBlockAsProc);
-                // isProc1Created = true;
-                // } catch (DataAccessException e) {
-                // sqlError = new SqlError("CREATE-PROC1");
-                // sqlError.setTableName(tableName);
-                // sqlError.setEntityIdColName(entityIdColName);
-                // sqlError.setSqlColName(sqlColName);
-                // sqlError.setEntityId(entityId);
-                // sqlError.setErrMsg(e.getMessage());
-                // sqlError.setQuery(wrappedBlockAsProc);
-                // sqlError.setOriginalQuery(entityBlock);
-                // sqlErrors.add(sqlError);
-                // }
 
                 if (!isProc1Created && !isProc2Created) {
                     continue;
@@ -502,12 +448,6 @@ public class CheckSqlExecutor {
                     if (procErrSqlRowSet.next()) {
                         String errMsg = getStringVal(procErrSqlRowSet, 1);
                         if (StringUtils.isNotBlank(errMsg)) {
-                            // procErrSqlRowSet =
-                            // test1JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS,
-                            // PLSQL_PROC_NAME);
-                            // if (procErrSqlRowSet.next()) {
-                            // errMsg = getStringVal(procErrSqlRowSet, 1);
-                            // if (StringUtils.isNotBlank(errMsg)) {
                             sqlError = new SqlError("PLSQL2");
                             sqlError.setTableName(tableName);
                             sqlError.setEntityIdColName(entityIdColName);
@@ -516,17 +456,8 @@ public class CheckSqlExecutor {
                             sqlError.setErrMsg(errMsg);
                             sqlError.setQuery(wrappedBlockAsProc);
                             sqlError.setOriginalQuery(entityBlock);
-                            sqlErrors.add(sqlError);
-                            // logger.info(INFO_MARKER,
-                            // "Phase [PLSQL] Table [{}] Rows [{}] Row[{}] Test
-                            // [2] ERROR",
-                            // plsql.getTableName(),
-                            // sqlRowSet.getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                            // sqlRowSet.getRow());
-                            logger.info(DATA_MARKER, "{}", sqlError.toString());
+                            logSqlError(sqlError);
                             continue;
-                            // }
-                            // }
                         }
                     }
                 } else if (isProc1Created) {
@@ -543,14 +474,7 @@ public class CheckSqlExecutor {
                             sqlError.setErrMsg(errMsg);
                             sqlError.setQuery(wrappedBlockAsProc);
                             sqlError.setOriginalQuery(entityBlock);
-                            sqlErrors.add(sqlError);
-                            // logger.info(INFO_MARKER,
-                            // "Phase [PLSQL] Table [{}] Rows [{}] Row[{}]
-                            // Test[1] ERROR",
-                            // plsql.getTableName(),
-                            // sqlRowSet.getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                            // sqlRowSet.getRow());
-                            logger.info(DATA_MARKER, "{}", sqlError.toString());
+                            logSqlError(sqlError);
                             continue;
                         }
                     }

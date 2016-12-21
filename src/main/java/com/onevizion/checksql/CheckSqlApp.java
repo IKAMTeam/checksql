@@ -29,13 +29,14 @@ public class CheckSqlApp {
     /**
      * Main use cases:
      * 1 - When RemoteOwner and RemoteUser are set,
-     *     then get queries and blocks from remote owner and test on remote user
-     *     (for check queries and blocks in current version)
+     * then get queries and blocks from remote owner and test on remote user
+     * (for check queries and blocks in current version)
      * 2 - When RemoteOwner and RemoteUser and LocalOwner and LocalUser are set,
-     *     then get queries and blocks from remote owner and test on local user
-     *     (for check queries and blocks in new version)
+     * then get queries and blocks from remote owner and test on local user
+     * (for check queries and blocks in new version)
+     * 
      * @param args
-     *      - (optional) Path to config file
+     *            - (optional) Path to config file
      */
     public static void main(String[] args) {
         CheckSqlApp app = new CheckSqlApp();
@@ -50,12 +51,16 @@ public class CheckSqlApp {
 
         ApplicationContext ctx = app.getAppContext("com/onevizion/checksql/beans.xml", configuration);
 
-        configDataSource((PoolDataSource) ctx.getBean("owner1DataSource"),parseDbCnnStr(configuration.getRemoteOwner()), "check-sql_owner1", false, true);
-        configDataSource((PoolDataSource) ctx.getBean("test1DataSource"), parseDbCnnStr(configuration.getRemoteUser()), "check-sql_test1", false, false);
+        configDataSource((PoolDataSource) ctx.getBean("owner1DataSource"),
+                parseDbCnnStr(configuration.getRemoteOwner()), "check-sql_owner1", false, true);
+        configDataSource((PoolDataSource) ctx.getBean("test1DataSource"), parseDbCnnStr(configuration.getRemoteUser()),
+                "check-sql_test1", false, false);
 
         if (configuration.isUseSecondTest()) {
-            configDataSource((PoolDataSource) ctx.getBean("owner2DataSource"), parseDbCnnStr(configuration.getLocalOwner()), "check-sql_owner2", true, true);
-            configDataSource((PoolDataSource) ctx.getBean("test2DataSource"), parseDbCnnStr(configuration.getLocalUser()), "check-sql_test2", true, false);
+            configDataSource((PoolDataSource) ctx.getBean("owner2DataSource"),
+                    parseDbCnnStr(configuration.getLocalOwner()), "check-sql_owner2", true, true);
+            configDataSource((PoolDataSource) ctx.getBean("test2DataSource"),
+                    parseDbCnnStr(configuration.getLocalUser()), "check-sql_test2", true, false);
         }
 
         CheckSqlExecutor executor = ctx.getBean(CheckSqlExecutor.class);
@@ -96,7 +101,7 @@ public class CheckSqlApp {
             String ver = getClass().getPackage().getImplementationVersion();
             MDC.put("Subject", ExceptionUtils.getSubj(e, ver));
 
-            logger.error("Exception", e);
+            logger.error(CheckSqlExecutor.INFO_MARKER, "Exception", e);
             throw new AppStartupException(e);
         }
     }
@@ -116,7 +121,8 @@ public class CheckSqlApp {
         }
 
         if ((StringUtils.isNotBlank(configuration.getLocalOwner()) && StringUtils.isBlank(configuration.getLocalUser()))
-                || (StringUtils.isBlank(configuration.getLocalOwner()) && StringUtils.isNotBlank(configuration.getLocalUser()))) {
+                || (StringUtils.isBlank(configuration.getLocalOwner())
+                        && StringUtils.isNotBlank(configuration.getLocalUser()))) {
             throw new IllegalArgumentException("both local_owner and local_user should set or nothing");
         }
 
@@ -150,19 +156,23 @@ public class CheckSqlApp {
             ds.setConnectionProperties(props);
             if (isLocal) {
                 if (isOwner) {
-                    logger.info("The data source is configured: local_owner=" + ds.getUser() + ", url=" + ds.getURL());
+                    logger.info(CheckSqlExecutor.INFO_MARKER,
+                            "The data source is configured: local_owner=" + ds.getUser() + ", url=" + ds.getURL());
                 } else {
-                    logger.info("The data source is configured: local_user=" + ds.getUser() + ", url=" + ds.getURL());
+                    logger.info(CheckSqlExecutor.INFO_MARKER,
+                            "The data source is configured: local_user=" + ds.getUser() + ", url=" + ds.getURL());
                 }
             } else {
                 if (isOwner) {
-                    logger.info("The data source is configured: remote_owner=" + ds.getUser() + ", url=" + ds.getURL());
+                    logger.info(CheckSqlExecutor.INFO_MARKER,
+                            "The data source is configured: remote_owner=" + ds.getUser() + ", url=" + ds.getURL());
                 } else {
-                    logger.info("The data source is configured: remote_user=" + ds.getUser() + ", url=" + ds.getURL());
+                    logger.info(CheckSqlExecutor.INFO_MARKER,
+                            "The data source is configured: remote_user=" + ds.getUser() + ", url=" + ds.getURL());
                 }
             }
         } catch (SQLException e) {
-            logger.warn("Can't set connection properties", e);
+            logger.info(CheckSqlExecutor.INFO_MARKER, "Can't set connection properties", e);
         }
     }
 
