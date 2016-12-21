@@ -27,7 +27,13 @@ public class CheckSqlApp {
     private static final String JDBC_THIN_URL_PREFIX = "jdbc:oracle:thin:@";
 
     /**
-     * 
+     * Main use cases:
+     * 1 - When RemoteOwner and RemoteUser are set,
+     *     then get queries and blocks from remote owner and test on remote user
+     *     (for check queries and blocks in current version)
+     * 2 - When RemoteOwner and RemoteUser and LocalOwner and LocalUser are set,
+     *     then get queries and blocks from remote owner and test on local user
+     *     (for check queries and blocks in new version)
      * @param args
      *      - (optional) Path to config file
      */
