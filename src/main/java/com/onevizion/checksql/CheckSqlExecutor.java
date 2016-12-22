@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.annotation.Resource;
@@ -638,11 +639,12 @@ public class CheckSqlExecutor {
 
     private boolean testSelectQuery(String sql, Configuration configuration) {
         String limitedSql = "select * from (\r\n" + sql + "\r\n) where rownum = 1";
-        TGSqlParser pareparedSqlParser = SqlParser.getParser(limitedSql);
+        String woutDateBindVars = replaceDateBindVars(limitedSql);
+        TGSqlParser pareparedSqlParser = SqlParser.getParser(woutDateBindVars);
         Map<String, Object> paramMap = getSqlParamMap(pareparedSqlParser);
         if (configuration.isUseSecondTest()) {
             try {
-                test2NamedParamJdbcTemplate.queryForRowSet(limitedSql, paramMap);
+                test2NamedParamJdbcTemplate.queryForRowSet(woutDateBindVars, paramMap);
             } catch (DataAccessException e) {
                 // try {
                 // test1NamedParamJdbcTemplate.queryForRowSet(sql,
@@ -655,7 +657,7 @@ public class CheckSqlExecutor {
             }
         } else {
             try {
-                test1NamedParamJdbcTemplate.queryForRowSet(limitedSql, paramMap);
+                test1NamedParamJdbcTemplate.queryForRowSet(woutDateBindVars, paramMap);
             } catch (DataAccessException e) {
                 sqlError = new SqlError(SqlError.SELECT_ERR_TYPE + "1");
                 sqlError.setErrMsg(e.getMessage());
@@ -663,6 +665,15 @@ public class CheckSqlExecutor {
             }
         }
         return true;
+    }
+
+    private String replaceDateBindVars(String sql) {
+        Pattern p = Pattern.compile("to_date[(]{1}\\s*:\\w*\\s*,\\s*'[my]{2}[/.]{1}[dm]{2}[/.][y]{2,4}'[)]{1}");
+        Matcher m = p.matcher(sql.toLowerCase());
+        if (m.find()) {
+            sql = m.replaceAll("to_date('01/01/1990','MM/DD/YYYY')");
+        }
+        return sql;
     }
 
     private String removeSemicolonAtTheEnd(String sql) {
