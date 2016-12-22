@@ -76,6 +76,8 @@ public class CheckSqlExecutor {
 
     private static final String DROP_PLSQL_PROC = "drop procedure " + PLSQL_PROC_NAME;
 
+    private static final String VALUE_BIND_VAR = ":VALUE";
+
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     public static final Marker INFO_MARKER = MarkerFactory.getMarker("INFO_SQL");
@@ -403,6 +405,7 @@ public class CheckSqlExecutor {
                 }
 
                 String woutBindVarsBlock = replaceBindVars(beginEndStatement, tableName, sqlColName, entityId);
+                woutBindVarsBlock = removeRowWithValueBindVarIfNeed(woutBindVarsBlock);
                 String wrappedBlockAsProc = wrapBlockAsProc(woutBindVarsBlock);
                 if (config.isUseSecondTest()) {
                     try {
@@ -503,6 +506,22 @@ public class CheckSqlExecutor {
                 logger.info(INFO_MARKER, "Phase 2/2 Test 2 Deleting procedure error [{}]", e.getMessage());
             }
         }
+    }
+
+    private String removeRowWithValueBindVarIfNeed(String plsql) {
+        if (plsql == null || !plsql.contains(VALUE_BIND_VAR)) {
+            return plsql;
+        }
+        String lines[] = plsql.split("\\r?\\n");
+        StringBuilder outPlsql = new StringBuilder();
+        for (String line : lines) {
+            if (!line.toUpperCase().trim().startsWith(":VALUE")) {
+                outPlsql.append(line);
+                outPlsql.append(System.getProperty("line.separator"));
+            }
+        }
+
+        return outPlsql.toString();
     }
 
     private String replaceBindVars(String sql, String tableName, String sqlColName, String entityId) {
