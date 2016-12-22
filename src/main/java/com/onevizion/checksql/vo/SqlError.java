@@ -98,6 +98,8 @@ public class SqlError {
             msg.append(LINE_DELIMITER);
             msg.append("/");
             msg.append(LINE_DELIMITER);
+            msg.append("commit;");
+            msg.append(LINE_DELIMITER);
             msg.append(LINE_DELIMITER);
             msg.append("select ");
             msg.append(sqlColName);
