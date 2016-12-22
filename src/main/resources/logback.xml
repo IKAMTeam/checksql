@@ -1,6 +1,6 @@
 <configuration scan="true">
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/${schema}.log</file>
+    <appender name="FILE_DATA" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/${schema}_data.log</file>
         <append>true</append>
         <filter class="com.onevizion.checksql.CheckSqlLogFilter">
             <marker>DATA_SQL</marker>
@@ -9,7 +9,27 @@
         </filter>
 
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>logs/${schema}.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <fileNamePattern>logs/${schema}_data.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>7</maxHistory>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>%msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="FILE_INFO" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/${schema}_info.log</file>
+        <append>true</append>
+        <filter class="com.onevizion.checksql.CheckSqlLogFilter">
+            <marker>INFO_SQL</marker>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/${schema}_info.%d{yyyy-MM-dd}.log</fileNamePattern>
             <maxHistory>7</maxHistory>
             <cleanHistoryOnStart>true</cleanHistoryOnStart>
         </rollingPolicy>
@@ -32,7 +52,8 @@
     </appender>
 
     <root level="INFO">
-        <appender-ref ref="FILE" />
+        <appender-ref ref="FILE_DATA" />
+        <appender-ref ref="FILE_INFO" />
         <appender-ref ref="STDOUT" />
     </root>
 
