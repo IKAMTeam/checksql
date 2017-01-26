@@ -640,7 +640,13 @@ public class CheckSqlExecutor {
     private boolean testSelectQuery(String sql, Configuration configuration) {
         String limitedSql = "select * from (\r\n" + sql + "\r\n) where rownum = 1";
         String woutDateBindVars = replaceDateBindVars(limitedSql);
-        TGSqlParser pareparedSqlParser = SqlParser.getParser(woutDateBindVars);
+        TGSqlParser pareparedSqlParser;
+        try {
+            pareparedSqlParser = SqlParser.getParser(woutDateBindVars);
+        } catch (Exception e1) {
+            logger.info(INFO_MARKER, "Invalid limitted SQL without bind vars:\r\nlimitted SQL [{}]\r\n wout vars [{}]", limitedSql, woutDateBindVars);
+            throw e1;
+        }
         Map<String, Object> paramMap = getSqlParamMap(pareparedSqlParser);
         if (configuration.isUseSecondTest()) {
             try {
