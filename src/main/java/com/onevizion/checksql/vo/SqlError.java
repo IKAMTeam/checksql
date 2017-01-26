@@ -78,7 +78,7 @@ public class SqlError {
             msg.append(LINE_DELIMITER);
             msg.append("declare");
             msg.append(LINE_DELIMITER);
-            msg.append("  v_var varchar2(30000) := q'ææ';");
+            msg.append("  v_var varchar2(30000) := q'??';");
             msg.append(LINE_DELIMITER);
             msg.append("begin");
             msg.append(LINE_DELIMITER);
