@@ -51,16 +51,26 @@ public class CheckSqlApp {
 
         ApplicationContext ctx = app.getAppContext("com/onevizion/checksql/beans.xml", configuration);
 
-        configDataSource((PoolDataSource) ctx.getBean("owner1DataSource"),
-                parseDbCnnStr(configuration.getRemoteOwner()), "check-sql_owner1", false, true);
-        configDataSource((PoolDataSource) ctx.getBean("test1DataSource"), parseDbCnnStr(configuration.getRemoteUser()),
-                "check-sql_test1", false, false);
+        String[] owner1DbUrlParts = parseDbCnnStr(configuration.getRemoteOwner());
+        configuration.setOwner1DbSchema(owner1DbUrlParts[0]);
+        configDataSource((PoolDataSource) ctx.getBean("owner1DataSource"), owner1DbUrlParts, "check-sql_owner1", false,
+                true);
+
+        String[] test1DbUrlParts = parseDbCnnStr(configuration.getRemoteUser());
+        configuration.setTest1DbSchema(test1DbUrlParts[0]);
+        configDataSource((PoolDataSource) ctx.getBean("test1DataSource"), test1DbUrlParts, "check-sql_test1", false,
+                false);
 
         if (configuration.isUseSecondTest()) {
-            configDataSource((PoolDataSource) ctx.getBean("owner2DataSource"),
-                    parseDbCnnStr(configuration.getLocalOwner()), "check-sql_owner2", true, true);
-            configDataSource((PoolDataSource) ctx.getBean("test2DataSource"),
-                    parseDbCnnStr(configuration.getLocalUser()), "check-sql_test2", true, false);
+            String[] owner2DbUrlParts = parseDbCnnStr(configuration.getLocalOwner());
+            configuration.setOwner2DbSchema(owner2DbUrlParts[0]);
+            configDataSource((PoolDataSource) ctx.getBean("owner2DataSource"), owner2DbUrlParts, "check-sql_owner2",
+                    true, true);
+
+            String[] test2DbUrlParts = parseDbCnnStr(configuration.getLocalUser());
+            configuration.setTest2DbSchema(test2DbUrlParts[0]);
+            configDataSource((PoolDataSource) ctx.getBean("test2DataSource"), test2DbUrlParts, "check-sql_test2", true,
+                    false);
         }
 
         CheckSqlExecutor executor = ctx.getBean(CheckSqlExecutor.class);

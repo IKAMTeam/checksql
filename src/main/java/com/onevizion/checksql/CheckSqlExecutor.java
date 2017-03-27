@@ -1,18 +1,10 @@
 package com.onevizion.checksql;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.StringWriter;
-import java.sql.Clob;
-import java.sql.SQLException;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
@@ -20,7 +12,6 @@ import java.util.regex.Pattern;
 
 import javax.annotation.Resource;
 
-import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Marker;
@@ -33,12 +24,13 @@ import org.springframework.stereotype.Component;
 
 import com.onevizion.checksql.exception.UnexpectedException;
 import com.onevizion.checksql.vo.AppSettings;
+import com.onevizion.checksql.vo.CheckSqlQuery;
 import com.onevizion.checksql.vo.Configuration;
 import com.onevizion.checksql.vo.PlsqlBlock;
 import com.onevizion.checksql.vo.SelectQuery;
 import com.onevizion.checksql.vo.SqlError;
+import com.onevizion.checksql.vo.TableValue;
 
-import gudusoft.gsqlparser.TGSqlParser;
 import oracle.ucp.jdbc.PoolDataSourceImpl;
 
 @Component
@@ -65,17 +57,37 @@ public class CheckSqlExecutor {
     @Resource
     private AppSettings appSettings;
 
+    private static final String CREATE_TESTVIEWPRIV_DDL = "create or replace view checksql_testviewpriv as select * from dual";
+
+    private static final String DROP_TESTVIEWPRIV_DDL = "drop view checksql_testviewpriv";
+
+    private static final String CREATE_TESTPROCPRIV_DDL = "create or replace procedure checksql_testprocpriv as begin null; end";
+
+    private static final String DROP_TESTPROCPRIV_DDL = "drop procedure checksql_testprocpriv";
+
+    private static final String GRAND_CREATE_VIEW_DDL = "grant create view to ";
+
+    private static final String REVOKE_CREATE_VIEW_DDL = "revoke create view to ";
+
+    private static final String GRAND_CREATE_PROC_DDL = "grant create procedure to ";
+
+    private static final String REVOKE_CREATE_PROC_DDL = "revoke create procedure to ";
+
     private static final String FIND_IMP_DATA_TYPE_PARAM_SQL_PARAM_BY_IMP_DATA_TYPE_ID = "select sql_parameter from imp_data_type_param where imp_data_type_id = ?";
 
     private static final String FIND_RULE_PARAM_SQL_PARAM_BY_ENTITY_ID = "select ID_FIELD from rule r join rule_type t on (r.rule_type_id = t.rule_type_id) where r.rule_id = ?";
 
     private static final String FIND_IMP_ENTITY_PARAM_SQL_PARAM_BY_ENTITY_ID = "select sql_parameter from imp_entity_param where imp_entity_id = ?";
 
-    private static final String FIND_PLSQL_ERRORS = "select text from all_errors where name = ? and type = 'PROCEDURE'";
+    private static final String FIND_DB_OBJECT_ERRORS = "select text from all_errors where name = ? and type = 'PROCEDURE'";
 
-    private static final String PLSQL_PROC_NAME = "TEST_PLSQL_BLOCK";
+    private static final String PLSQL_PROC_NAME = "CHECKSQL_PLSQL";
+
+    private static final String SELECT_VIEW_NAME = "CHECKSQL_SELECT";
 
     private static final String DROP_PLSQL_PROC = "drop procedure " + PLSQL_PROC_NAME;
+
+    private static final String DROP_SELECT_VIEW = "drop view " + SELECT_VIEW_NAME;
 
     private static final String VALUE_BIND_VAR = ":VALUE";
 
@@ -106,13 +118,9 @@ public class CheckSqlExecutor {
 
     private static final String FIND_FIRST_PROGRAM_ID_OLD = "select program_id from v_program where rownum < 2";
 
-    private SqlError sqlError;
-
     private List<SqlError> sqlErrors;
 
     public CheckSqlExecutor() {
-        super();
-
         sqlErrors = new ArrayList<SqlError>();
     }
 
@@ -122,17 +130,127 @@ public class CheckSqlExecutor {
         configAppSettings(config);
 
         if (config.isEnabledSql()) {
-            executeQueries(config);
+            boolean isCreateViewGranted = grantCreateViewPrivIfNeed(config);
+            try {
+                testSelectQueries(config);
+            } catch (Exception e) {
+                if (isCreateViewGranted) {
+                    revokeCreateViewPriv(config);
+                }
+                logger.info(INFO_MARKER, "SQL Checker is failed with error\r\n{}", e.toString());
+                return;
+            }
+            if (isCreateViewGranted) {
+                revokeCreateViewPriv(config);
+            }
         } else {
             logger.info(INFO_MARKER, "Testing of SELECT queries is disabled");
         }
         if (config.isEnabledPlSql()) {
-            testPlsql(config);
+            boolean isCreateProcGranted = grantCreateProcPrivIfNeed(config);
+            try {
+                testPlsqlBlocks(config);
+            } catch (Exception e) {
+                if (isCreateProcGranted) {
+                    revokeCreateProcPriv(config);
+                }
+                logger.info(INFO_MARKER, "SQL Checker is failed with error\r\n{}", e.toString());
+                return;
+            }
+            if (isCreateProcGranted) {
+                revokeCreateProcPriv(config);
+            }
         } else {
             logger.info(INFO_MARKER, "Testing of PLSQL blocks is disabled");
         }
         logSqlErrors();
         logger.info(INFO_MARKER, "SQL Checker is completed");
+    }
+
+    private void revokeCreateProcPriv(Configuration config) {
+        if (config.isUseSecondTest()) {
+            owner2JdbcTemplate.update(REVOKE_CREATE_PROC_DDL + config.getTest2DbSchema());
+        } else {
+            owner1JdbcTemplate.update(REVOKE_CREATE_PROC_DDL + config.getTest1DbSchema());
+        }
+        logger.info(INFO_MARKER, "Privs on 'create procedure' is revoked");
+    }
+
+    private boolean grantCreateProcPrivIfNeed(Configuration config) {
+        boolean isTestProcCreated = true;
+        try {
+            if (config.isUseSecondTest()) {
+                test2JdbcTemplate.update(CREATE_TESTPROCPRIV_DDL);
+            } else {
+                test1JdbcTemplate.update(CREATE_TESTPROCPRIV_DDL);
+            }
+            logger.info(INFO_MARKER, "Procedure is created to check if there are privs on 'create procedure'");
+        } catch (DataAccessException e) {
+            isTestProcCreated = false;
+            logger.info(INFO_MARKER, "There are no privs on 'create procedure'");
+        }
+
+        boolean revokePriv = true;
+        if (isTestProcCreated) {
+            if (config.isUseSecondTest()) {
+                test2JdbcTemplate.update(DROP_TESTPROCPRIV_DDL);
+            } else {
+                test1JdbcTemplate.update(DROP_TESTPROCPRIV_DDL);
+            }
+            logger.info(INFO_MARKER, "Procedure is deleted to check if there are privs on 'create procedure'");
+            revokePriv = false;
+        } else {
+            if (config.isUseSecondTest()) {
+                owner2JdbcTemplate.update(GRAND_CREATE_PROC_DDL + config.getTest2DbSchema());
+            } else {
+                owner1JdbcTemplate.update(GRAND_CREATE_PROC_DDL + config.getTest1DbSchema());
+            }
+            logger.info(INFO_MARKER, "Privs on 'create procedure' is granted");
+        }
+        return revokePriv;
+    }
+
+    private void revokeCreateViewPriv(Configuration config) {
+        if (config.isUseSecondTest()) {
+            owner2JdbcTemplate.update(REVOKE_CREATE_VIEW_DDL + config.getTest2DbSchema());
+        } else {
+            owner1JdbcTemplate.update(REVOKE_CREATE_VIEW_DDL + config.getTest1DbSchema());
+        }
+        logger.info(INFO_MARKER, "Privs on 'create view' is revoked");
+    }
+
+    private boolean grantCreateViewPrivIfNeed(Configuration config) {
+        boolean isTestViewCreated = true;
+        try {
+            if (config.isUseSecondTest()) {
+                test2JdbcTemplate.update(CREATE_TESTVIEWPRIV_DDL);
+            } else {
+                test1JdbcTemplate.update(CREATE_TESTVIEWPRIV_DDL);
+            }
+            logger.info(INFO_MARKER, "View is created to check if there are privs on 'create view'");
+        } catch (DataAccessException e) {
+            logger.info(INFO_MARKER, "There are no privs on 'create view'");
+            isTestViewCreated = false;
+        }
+
+        boolean revokePriv = true;
+        if (isTestViewCreated) {
+            if (config.isUseSecondTest()) {
+                test2JdbcTemplate.update(DROP_TESTVIEWPRIV_DDL);
+            } else {
+                test1JdbcTemplate.update(DROP_TESTVIEWPRIV_DDL);
+            }
+            logger.info(INFO_MARKER, "View is deleted to check if there are privs on 'create view'");
+            revokePriv = false;
+        } else {
+            if (config.isUseSecondTest()) {
+                owner2JdbcTemplate.update(GRAND_CREATE_VIEW_DDL + config.getTest2DbSchema());
+            } else {
+                owner1JdbcTemplate.update(GRAND_CREATE_VIEW_DDL + config.getTest1DbSchema());
+            }
+            logger.info(INFO_MARKER, "Privs on 'create view' is granted");
+        }
+        return revokePriv;
     }
 
     private void configAppSettings(Configuration config) {
@@ -201,10 +319,6 @@ public class CheckSqlExecutor {
         }
 
         logTableStats();
-
-        // for (SqlError err : sqlErrors) {
-        // logger.warn(err.toString());
-        // }
     }
 
     private void logTableStats() {
@@ -227,8 +341,10 @@ public class CheckSqlExecutor {
             }
             String tableName = new String(err.getTableName()).toLowerCase();
             Integer tableCnt = tableStats.get(tableName);
-            tableCnt++;
-            tableStats.put(tableName, tableCnt);
+            if (tableCnt != null) {
+                tableCnt++;
+                tableStats.put(tableName, tableCnt);
+            }
         }
         logger.info(INFO_MARKER, "========TABLE STATS=========");
         for (String tableName : tableStats.keySet()) {
@@ -237,98 +353,204 @@ public class CheckSqlExecutor {
         }
     }
 
-    private void executeQueries(Configuration config) {
-        int tableNums = SelectQuery.values().length;
+    private void testSelectQueries(Configuration config) {
+        final int tableNums = SelectQuery.values().length;
+
+        boolean dropView = false;
         for (SelectQuery sel : SelectQuery.values()) {
-            if (!sel.isCheckQuery()) {
-                logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} - Check is disabled", sel.getOrdNum(), tableNums);
-                continue;
-            }
-            if (config.getSkipTablesSql().contains(sel.getTableName())) {
-                logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} is skipped", sel.getOrdNum(), tableNums);
-                continue;
-            }
-            sqlError = null;
-
-            String sql = sel.getSql();
-            String tableName = SqlParser.getFirstTableName(sql);
-
-            SqlRowSet sqlRowSet = getSqlRowSetData(sql);
-            if (sqlRowSet == null) {
-                sqlError.setTableName(tableName);
-                sqlErrors.add(sqlError);
-                logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} - Getting data error [{}]", sel.getOrdNum(), tableNums,
-                        sqlError.toString());
+            if (config.isSkippedSqlTable(sel.getTableName())) {
+                logger.info(INFO_MARKER, "Phase 1/2 Table {}/{}: Table {} is skipped", sel.getOrdNum(), tableNums,
+                        sel.getTableName());
                 continue;
             }
 
-            List<String> sqlDataCols = SqlParser.getCols(sql);
-            String entityIdColName = sqlDataCols.get(0);
-            String sqlColName = sqlDataCols.get(1);
+            TableValue<SqlRowSet> entitySqls = getSqlRowSetData(sel);
+            if (entitySqls.hasError()) {
+                logger.info(INFO_MARKER,
+                        "Phase 1/2 Table {}/{}: Error to get of list with SELECT queries for {}.{}\r\n{}",
+                        sel.getOrdNum(), tableNums, sel.getTableName(), sel.getSqlColName(),
+                        entitySqls.getSqlError().toString());
+                continue;
+            }
 
             boolean isEmptyTable = true;
-            while (sqlRowSet.next()) {
+            while (entitySqls.getValue().next()) {
                 isEmptyTable = false;
-                sqlError = null;
-                logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row {}/{}", sel.getOrdNum(), tableNums,
-                        sqlRowSet.getRow(), sqlRowSet.getString(SelectQuery.TOTAL_ROWS_COL_NAME));
 
-                String entityId = sqlRowSet.getString(1);
-                if (entityId.equals("100097923")) {
-                    sqlError = null;
-                }
-
-                String entitySql = getStringVal(sqlRowSet, 2);
-                if (sqlError != null) {
-                    sqlError.setTableName(tableName);
-                    sqlError.setEntityIdColName(entityIdColName);
-                    sqlError.setSqlColName(sqlColName);
-                    sqlError.setEntityId(entityId);
-                    logSqlError(sqlError);
+                TableValue<String> entityId = TableValue.createString(entitySqls.getValue(), sel.getPrimKeyColName());
+                if (entityId == null || entityId.hasError()) {
+                    entityId.getSqlError().setTableName(sel.getTableName());
+                    entityId.getSqlError().setEntityIdColName(sel.getPrimKeyColName());
+                    entityId.getSqlError().setSqlColName(sel.getSqlColName());
+                    entityId.getSqlError().setEntityId(null);
+                    entityId.getSqlError().setPhase(1);
+                    entityId.getSqlError().setTable(sel.getOrdNum());
+                    entityId.getSqlError().setRow(entitySqls.getValue().getRow());
+                    logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row {}/{}: Error\r\n{}", sel.getOrdNum(), tableNums,
+                            entitySqls.getValue().getRow(),
+                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
+                            entityId.getSqlError().getErrMsg());
                     continue;
                 }
 
-                String replacedImpVars = new String(entitySql);
-                if ("imp_data_type_param".equalsIgnoreCase(tableName)) {
-                    replacedImpVars = replaceStaticImpDataTypeParam(replacedImpVars);
-                }
-
-                TGSqlParser parser = parseSelectQuery(replacedImpVars);
-                if (sqlError != null) {
-                    sqlError.setTableName(tableName);
-                    sqlError.setEntityIdColName(entityIdColName);
-                    sqlError.setSqlColName(sqlColName);
-                    sqlError.setEntityId(entityId);
-                    sqlError.setQuery(replacedImpVars);
-                    sqlError.setOriginalQuery(entitySql);
-                    logSqlError(sqlError);
+                TableValue<String> entitySql = TableValue.createString(entitySqls.getValue(), sel.getSqlColName());
+                if (entitySql == null || entitySql.hasError()) {
+                    entitySql.getSqlError().setTableName(sel.getTableName());
+                    entitySql.getSqlError().setEntityIdColName(sel.getPrimKeyColName());
+                    entitySql.getSqlError().setSqlColName(sel.getSqlColName());
+                    entitySql.getSqlError().setEntityId(entityId.getValue());
+                    entitySql.getSqlError().setPhase(1);
+                    entitySql.getSqlError().setTable(sel.getOrdNum());
+                    entitySql.getSqlError().setRow(entitySqls.getValue().getRow());
+                    logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row {}/{}: Error\r\n{}", sel.getOrdNum(), tableNums,
+                            entitySqls.getValue().getRow(),
+                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
+                            entitySql.getSqlError().getErrMsg());
+                    logSqlError(entitySql.getSqlError());
                     continue;
                 }
-                if (SqlParser.isSelectStatement(parser)) {
-                    String sqlWoutPlaceholder = new String(replacedImpVars);
-                    if (sqlWoutPlaceholder.contains("?")) {
-                        sqlWoutPlaceholder = sqlWoutPlaceholder.replace("?", ":p");
-                    }
 
-                    String preparedSql = SqlParser.removeIntoClause(sqlWoutPlaceholder);
-                    preparedSql = removeSemicolonAtTheEnd(preparedSql);
-                    testSelectQuery(preparedSql, config);
-                    if (sqlError != null) {
-                        sqlError.setTableName(tableName);
-                        sqlError.setEntityIdColName(entityIdColName);
-                        sqlError.setSqlColName(sqlColName);
-                        sqlError.setEntityId(entityId);
-                        sqlError.setQuery(preparedSql);
-                        sqlError.setOriginalQuery(entitySql);
-                        logSqlError(sqlError);
-                        continue;
-                    }
+                // Remove unavailable statements of SELECT
+                String selectSql = new String(entitySql.getValue());
+                if (SelectQuery.IMP_DATA_TYPE_PARAM.getTableName().equalsIgnoreCase(sel.getTableName())) {
+                    selectSql = replaceStaticImpDataTypeParam(selectSql);
+                } else if (SelectQuery.IMP_ENTITY.getTableName().equalsIgnoreCase(sel.getTableName())
+                        && isPlsqlBlock(selectSql)) {
+                    logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row {}/{}: Skip because it is PLSQL\r\n{}",
+                            sel.getOrdNum(), tableNums,
+                            entitySqls.getValue().getRow(),
+                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
+                            selectSql);
+                    continue;
                 }
+                if (selectSql.contains("?")) {
+                    selectSql = selectSql.replace("?", ":p");
+                }
+                try {
+                    selectSql = SqlParser.removeIntoClause(selectSql);
+                } catch (Exception e) {
+                    SqlError sqlErr = new SqlError("SELECT-INTO-CLAUSE");
+                    sqlErr.setErrMsg(e.getMessage());
+                    sqlErr.setTableName(sel.getTableName());
+                    sqlErr.setEntityIdColName(sel.getPrimKeyColName());
+                    sqlErr.setSqlColName(sel.getSqlColName());
+                    sqlErr.setEntityId(entityId.getValue());
+                    sqlErr.setPhase(1);
+                    sqlErr.setTable(sel.getOrdNum());
+                    sqlErr.setRow(entitySqls.getValue().getRow());
+                    logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row {}/{}: Error\r\n{}", sel.getOrdNum(), tableNums,
+                            entitySqls.getValue().getRow(),
+                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
+                            sqlErr.getErrMsg());
+                    logSqlError(sqlErr);
+                    continue;
+                }
+                selectSql = removeSemicolonAtTheEnd(selectSql);
+                selectSql = replaceDateBindVars(selectSql);
+                selectSql = replaceNonDateBindVars(selectSql);
+                selectSql = "select 1 as val from (" + selectSql + ")";
+
+                // Check if a query is Select statement and there are privs with help of creating Oracle View. If view
+                // is created then it is Select statement or there are unhandled errors
+                TableValue<Boolean> isSelectResult = isSelectStatement(config, selectSql);
+                dropView = true;
+                if (isSelectResult.hasError()) {
+                    isSelectResult.getSqlError().setTableName(sel.getTableName());
+                    isSelectResult.getSqlError().setEntityIdColName(sel.getPrimKeyColName());
+                    isSelectResult.getSqlError().setSqlColName(sel.getSqlColName());
+                    isSelectResult.getSqlError().setEntityId(entityId.getValue());
+                    isSelectResult.getSqlError().setQuery(selectSql);
+                    isSelectResult.getSqlError().setOriginalQuery(entitySql.getValue());
+                    isSelectResult.getSqlError().setPhase(1);
+                    isSelectResult.getSqlError().setTable(sel.getOrdNum());
+                    isSelectResult.getSqlError().setRow(entitySqls.getValue().getRow());
+                    logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row {}/{}: Error\r\n{}", sel.getOrdNum(), tableNums,
+                            entitySqls.getValue().getRow(),
+                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
+                            isSelectResult.getSqlError().getErrMsg());
+                    logSqlError(isSelectResult.getSqlError());
+                    continue;
+                }
+
+                logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row {}/{}: OK", sel.getOrdNum(), tableNums,
+                        entitySqls.getValue().getRow(),
+                        entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME));
             }
             if (isEmptyTable) {
-                logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row 0/0", sel.getOrdNum(), tableNums);
+                logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row 0/0: Table {} is empty", sel.getOrdNum(), tableNums, sel.getTableName());
             }
         }
+        if (dropView) {
+            if (config.isUseSecondTest()) {
+                try {
+                    test2JdbcTemplate.update(DROP_SELECT_VIEW);
+                } catch (DataAccessException e) {
+                    logger.info(INFO_MARKER, "Phase 1/2: Error when Test2 view is deleting\r\n{}", e.getMessage());
+                }
+            } else {
+                try {
+                    test1JdbcTemplate.update(DROP_SELECT_VIEW);
+                } catch (DataAccessException e) {
+                    logger.info(INFO_MARKER, "Phase 1/2: Error when Test2 view is deleting\r\n{}", e.getMessage());
+                }
+            }
+        }
+    }
+
+    private TableValue<Boolean> isSelectStatement(Configuration config, String selectSql) {
+        String viewDdl = wrapSelectAsView(selectSql);
+
+        boolean viewCreated = false;
+        SqlError sqlErr = null;
+        if (config.isUseSecondTest()) {
+            try {
+                test2JdbcTemplate.update(viewDdl);
+                viewCreated = true;
+            } catch (DataAccessException e2) {
+                sqlErr = new SqlError("CREATE-VIEW2");
+                sqlErr.setErrMsg(e2.getMessage());
+            }
+        } else {
+            try {
+                test1JdbcTemplate.update(viewDdl);
+                viewCreated = true;
+            } catch (DataAccessException e) {
+                sqlErr = new SqlError("CREATE-VIEW1");
+                sqlErr.setErrMsg(e.getMessage());
+            }
+        }
+        if (viewCreated) {
+            if (config.isUseSecondTest()) {
+                SqlRowSet errSqlRowSet = test2JdbcTemplate.queryForRowSet(FIND_DB_OBJECT_ERRORS, SELECT_VIEW_NAME);
+                if (errSqlRowSet.next()) {
+                    TableValue<String> errResult = TableValue.createString(errSqlRowSet, "text");
+                    if (errResult.hasError()) {
+                        sqlErr = new SqlError("GET-VIEW-ERR2");
+                        sqlErr.setErrMsg(errResult.getSqlError().getErrMsg());
+                        viewCreated = false;
+                    } else {
+                        sqlErr = new SqlError("VIEW-ERR2");
+                        sqlErr.setErrMsg(errResult.getValue());
+                        viewCreated = false;
+                    }
+                }
+            } else {
+                SqlRowSet errSqlRowSet = test1JdbcTemplate.queryForRowSet(FIND_DB_OBJECT_ERRORS, SELECT_VIEW_NAME);
+                if (errSqlRowSet.next()) {
+                    TableValue<String> errResult = TableValue.createString(errSqlRowSet, "text");
+                    if (errResult.hasError()) {
+                        sqlErr = new SqlError("GET-VIEW-ERR1");
+                        sqlErr.setErrMsg(errResult.getSqlError().getErrMsg());
+                        viewCreated = false;
+                    } else {
+                        sqlErr = new SqlError("VIEW-ERR1");
+                        sqlErr.setErrMsg(errResult.getValue());
+                        viewCreated = false;
+                    }
+                }
+            }
+        }
+        return new TableValue<Boolean>(viewCreated, sqlErr);
     }
 
     private void logSqlError(SqlError sqlError) {
@@ -336,180 +558,181 @@ public class CheckSqlExecutor {
         sqlErrors.add(sqlError);
     }
 
-    private void testPlsql(Configuration config) {
-        boolean isProc1Created = false;
-        boolean isProc2Created = false;
+    private void testPlsqlBlocks(Configuration config) {
+        boolean dropProc = false;
         int tableNums = PlsqlBlock.values().length;
         for (PlsqlBlock plsql : PlsqlBlock.values()) {
-            if (!plsql.isCheckQuery()) {
-                logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} - Check is disabled", plsql.getOrdNum(), tableNums);
-                continue;
-            }
-            if (config.getSkipTablesPlSql().contains(plsql.getTableName())) {
+            if (config.isSkippedPlsqlTable(plsql.getTableName())) {
                 logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} is skipped", plsql.getOrdNum(), tableNums);
                 continue;
             }
-            sqlError = null;
 
-            String sql = plsql.getSql();
-            String tableName = SqlParser.getFirstTableName(sql);
-            List<String> sqlDataCols = SqlParser.getCols(sql);
-            String entityIdColName = sqlDataCols.get(0);
-
-            String sqlColName = sqlDataCols.get(1);
-
-            SqlRowSet sqlRowSet = getSqlRowSetData(sql);
-            if (sqlRowSet == null) {
-                sqlError.setTableName(tableName);
-                sqlErrors.add(sqlError);
-                logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} - Getting data error [{}]", plsql.getOrdNum(),
-                        tableNums, sqlError.toString());
+            TableValue<SqlRowSet> entitySqls = getSqlRowSetData(plsql);
+            if (entitySqls.hasError()) {
+                logger.info(INFO_MARKER,
+                        "Phase 2/2 Table {}/{}: Error to get of list with PLSQL blocks for {}.{}\r\n{}",
+                        plsql.getOrdNum(), tableNums, plsql.getTableName(), plsql.getSqlColName(),
+                        entitySqls.getSqlError().toString());
                 continue;
             }
 
             boolean isEmptyTable = true;
-            while (sqlRowSet.next()) {
+            while (entitySqls.getValue().next()) {
                 isEmptyTable = false;
-                sqlError = null;
 
-                logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} Row {}/{}", plsql.getOrdNum(), tableNums,
-                        sqlRowSet.getRow(), sqlRowSet.getString(SelectQuery.TOTAL_ROWS_COL_NAME));
-
-                String entityId = sqlRowSet.getString(1);
-
-                String entityBlock = getStringVal(sqlRowSet, 2);
-                if (sqlError != null) {
-                    sqlError.setTableName(tableName);
-                    sqlError.setEntityIdColName(entityIdColName);
-                    sqlError.setSqlColName(sqlColName);
-                    sqlError.setEntityId(entityId);
-                    logSqlError(sqlError);
+                TableValue<String> entityId = TableValue.createString(entitySqls.getValue(), plsql.getPrimKeyColName());
+                if (entityId == null || entityId.hasError()) {
+                    entityId.getSqlError().setTableName(plsql.getTableName());
+                    entityId.getSqlError().setEntityIdColName(plsql.getPrimKeyColName());
+                    entityId.getSqlError().setSqlColName(plsql.getSqlColName());
+                    entityId.getSqlError().setEntityId(null);
+                    entityId.getSqlError().setPhase(2);
+                    entityId.getSqlError().setTable(plsql.getOrdNum());
+                    entityId.getSqlError().setRow(entitySqls.getValue().getRow());
+                    logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} Row {}/{}: Error\r\n{}", plsql.getOrdNum(),
+                            tableNums,
+                            entitySqls.getValue().getRow(),
+                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
+                            entityId.getSqlError().getErrMsg());
                     continue;
                 }
 
-                String beginEndStatement = wrapBeginEndIfNeed(entityBlock);
-                boolean isSelectStatement;
-                try {
-                    isSelectStatement = SqlParser.isSelectStatement(beginEndStatement);
-                } catch (Exception e1) {
-                    sqlError = new SqlError("PARSE-BLOCK");
-                    sqlError.setTableName(tableName);
-                    sqlError.setEntityIdColName(entityIdColName);
-                    sqlError.setSqlColName(sqlColName);
-                    sqlError.setEntityId(entityId);
-                    sqlError.setErrMsg(e1.getMessage());
-                    sqlError.setQuery(beginEndStatement);
-                    sqlError.setOriginalQuery(entityBlock);
-                    logSqlError(sqlError);
+                TableValue<String> entityBlock = TableValue.createString(entitySqls.getValue(), plsql.getSqlColName());
+                if (entityBlock == null || entityBlock.hasError()) {
+                    entityBlock.getSqlError().setTableName(plsql.getTableName());
+                    entityBlock.getSqlError().setEntityIdColName(plsql.getPrimKeyColName());
+                    entityBlock.getSqlError().setSqlColName(plsql.getSqlColName());
+                    entityBlock.getSqlError().setEntityId(entityId.getValue());
+                    entityBlock.getSqlError().setPhase(2);
+                    entityBlock.getSqlError().setTable(plsql.getOrdNum());
+                    entityBlock.getSqlError().setRow(entitySqls.getValue().getRow());
+                    logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} Row {}/{}: Error\r\n{}", plsql.getOrdNum(),
+                            tableNums,
+                            entitySqls.getValue().getRow(),
+                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
+                            entityBlock.getSqlError().getErrMsg());
+                    logSqlError(entityBlock.getSqlError());
                     continue;
                 }
 
-                if (isSelectStatement) {
+                if (isSelectStatement(entityBlock.getValue())) {
+                    // In some cases, the table column can contain PLSQL blocks and SELECT statements
                     continue;
                 }
 
-                String woutBindVarsBlock = replaceBindVars(beginEndStatement, tableName, sqlColName, entityId);
-                woutBindVarsBlock = removeRowWithValueBindVarIfNeed(woutBindVarsBlock);
-                String wrappedBlockAsProc = wrapBlockAsProc(woutBindVarsBlock);
-                if (config.isUseSecondTest()) {
-                    try {
-                        isProc2Created = false;
-                        test2JdbcTemplate.update(wrappedBlockAsProc);
-                        isProc2Created = true;
-                    } catch (DataAccessException e2) {
-                        sqlError = new SqlError("CREATE-PROC2");
-                        sqlError.setTableName(tableName);
-                        sqlError.setEntityIdColName(entityIdColName);
-                        sqlError.setSqlColName(sqlColName);
-                        sqlError.setEntityId(entityId);
-                        sqlError.setErrMsg(e2.getMessage());
-                        sqlError.setQuery(wrappedBlockAsProc);
-                        sqlError.setOriginalQuery(entityBlock);
-                        logSqlError(sqlError);
-                    }
-                } else {
-                    try {
-                        isProc1Created = false;
-                        test1JdbcTemplate.update(wrappedBlockAsProc);
-                        isProc1Created = true;
-                    } catch (DataAccessException e) {
-                        sqlError = new SqlError("CREATE-PROC1");
-                        sqlError.setTableName(tableName);
-                        sqlError.setEntityIdColName(entityIdColName);
-                        sqlError.setSqlColName(sqlColName);
-                        sqlError.setEntityId(entityId);
-                        sqlError.setErrMsg(e.getMessage());
-                        sqlError.setQuery(wrappedBlockAsProc);
-                        sqlError.setOriginalQuery(entityBlock);
-                        logSqlError(sqlError);
-                    }
-                }
+                String plsqlBlock = wrapBeginEndIfNeed(entityBlock.getValue());
+                plsqlBlock = removeRowWithValueBindVarIfNeed(plsqlBlock);
+                plsqlBlock = replaceBindVars(plsqlBlock, plsql.getTableName(), plsql.getSqlColName(),
+                        entityId.getValue());
 
-                if (!isProc1Created && !isProc2Created) {
+                TableValue<Boolean> plsqlBlockResult = isPlsqlBlock(config, plsqlBlock);
+                dropProc = true;
+                if (plsqlBlockResult.hasError()) {
+                    plsqlBlockResult.getSqlError().setTableName(plsql.getTableName());
+                    plsqlBlockResult.getSqlError().setEntityIdColName(plsql.getPrimKeyColName());
+                    plsqlBlockResult.getSqlError().setSqlColName(plsql.getSqlColName());
+                    plsqlBlockResult.getSqlError().setEntityId(entityId.getValue());
+                    plsqlBlockResult.getSqlError().setQuery(plsqlBlock);
+                    plsqlBlockResult.getSqlError().setOriginalQuery(entityBlock.getValue());
+                    plsqlBlockResult.getSqlError().setPhase(2);
+                    plsqlBlockResult.getSqlError().setTable(plsql.getOrdNum());
+                    plsqlBlockResult.getSqlError().setRow(entitySqls.getValue().getRow());
+                    logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} Row {}/{}: Error\r\n{}\r\n{}", plsql.getOrdNum(),
+                            tableNums,
+                            entitySqls.getValue().getRow(),
+                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
+                            plsqlBlockResult.getSqlError().getErrMsg(), plsqlBlock);
+                    logSqlError(plsqlBlockResult.getSqlError());
                     continue;
                 }
 
-                if (isProc2Created) {
-                    SqlRowSet procErrSqlRowSet = test2JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS,
-                            PLSQL_PROC_NAME);
-                    if (procErrSqlRowSet.next()) {
-                        String errMsg = getStringVal(procErrSqlRowSet, 1);
-                        if (StringUtils.isNotBlank(errMsg)) {
-                            sqlError = new SqlError("PLSQL2");
-                            sqlError.setTableName(tableName);
-                            sqlError.setEntityIdColName(entityIdColName);
-                            sqlError.setSqlColName(sqlColName);
-                            sqlError.setEntityId(entityId);
-                            sqlError.setErrMsg(errMsg);
-                            sqlError.setQuery(wrappedBlockAsProc);
-                            sqlError.setOriginalQuery(entityBlock);
-                            logSqlError(sqlError);
-                            continue;
-                        }
-                    }
-                } else if (isProc1Created) {
-                    SqlRowSet procErrSqlRowSet = test1JdbcTemplate.queryForRowSet(FIND_PLSQL_ERRORS,
-                            PLSQL_PROC_NAME);
-                    if (procErrSqlRowSet.next()) {
-                        String errMsg = getStringVal(procErrSqlRowSet, 1);
-                        if (StringUtils.isNotBlank(errMsg)) {
-                            sqlError = new SqlError("PLSQL1");
-                            sqlError.setTableName(tableName);
-                            sqlError.setEntityIdColName(entityIdColName);
-                            sqlError.setSqlColName(sqlColName);
-                            sqlError.setEntityId(entityId);
-                            sqlError.setErrMsg(errMsg);
-                            sqlError.setQuery(wrappedBlockAsProc);
-                            sqlError.setOriginalQuery(entityBlock);
-                            logSqlError(sqlError);
-                            continue;
-                        }
-                    }
-                } else {
-                    continue;
-                }
+                logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} Row {}/{}: OK", plsql.getOrdNum(), tableNums,
+                        entitySqls.getValue().getRow(),
+                        entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME));
             }
             if (isEmptyTable) {
-                logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} Row 0/0", plsql.getOrdNum(), tableNums);
+                logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} Row 0/0: Table is empty", plsql.getOrdNum(), tableNums);
             }
         }
 
-        if (isProc1Created) {
+        if (dropProc) {
+            if (config.isUseSecondTest()) {
+                try {
+                    test2JdbcTemplate.update(DROP_PLSQL_PROC);
+                } catch (DataAccessException e) {
+                    logger.info(INFO_MARKER, "Phase 2/2 Test 2 Deleting procedure error [{}]", e.getMessage());
+                }
+            } else {
+                try {
+                    test1JdbcTemplate.update(DROP_PLSQL_PROC);
+                } catch (DataAccessException e) {
+                    logger.info(INFO_MARKER, "Phase 2/2 Test 1 Deleting procedure error [{}]", e.getMessage());
+                }
+            }
+        }
+    }
+
+    private TableValue<Boolean> isPlsqlBlock(Configuration config, String plsqlBlock) {
+        String procDdl = wrapBlockAsProc(plsqlBlock);
+
+        boolean procCreated = false;
+        SqlError sqlErr = null;
+        if (config.isUseSecondTest()) {
             try {
-                test1JdbcTemplate.update(DROP_PLSQL_PROC);
-            } catch (DataAccessException e) {
-                logger.info(INFO_MARKER, "Phase 2/2 Test 1 Deleting procedure error [{}]", e.getMessage());
+                test2JdbcTemplate.update(procDdl);
+                procCreated = true;
+            } catch (DataAccessException e2) {
+                sqlErr = new SqlError("CREATE-PROC2");
+                sqlErr.setErrMsg(e2.getMessage());
             }
-
-        }
-
-        if (isProc2Created) {
+        } else {
             try {
-                test2JdbcTemplate.update(DROP_PLSQL_PROC);
+                test1JdbcTemplate.update(procDdl);
+                procCreated = true;
             } catch (DataAccessException e) {
-                logger.info(INFO_MARKER, "Phase 2/2 Test 2 Deleting procedure error [{}]", e.getMessage());
+                sqlErr = new SqlError("CREATE-PROC1");
+                sqlErr.setErrMsg(e.getMessage());
             }
         }
+
+        if (procCreated) {
+            if (config.isUseSecondTest()) {
+                SqlRowSet errSqlRowSet = test2JdbcTemplate.queryForRowSet(FIND_DB_OBJECT_ERRORS, PLSQL_PROC_NAME);
+                if (errSqlRowSet.next()) {
+                    TableValue<String> errResult = TableValue.createString(errSqlRowSet, "text");
+                    if (errResult.hasError()) {
+                        sqlErr = new SqlError("GET-PROC-ERR2");
+                        sqlErr.setErrMsg(errResult.getSqlError().getErrMsg());
+                        procCreated = false;
+                    } else {
+                        sqlErr = new SqlError("PROC-ERR2");
+                        sqlErr.setErrMsg(errResult.getValue());
+                        procCreated = false;
+                    }
+                }
+            } else {
+                SqlRowSet errSqlRowSet = test1JdbcTemplate.queryForRowSet(FIND_DB_OBJECT_ERRORS, PLSQL_PROC_NAME);
+                if (errSqlRowSet.next()) {
+                    TableValue<String> errResult = TableValue.createString(errSqlRowSet, "text");
+                    if (errResult.hasError()) {
+                        sqlErr = new SqlError("GET-PROC-ERR1");
+                        sqlErr.setErrMsg(errResult.getSqlError().getErrMsg());
+                        procCreated = false;
+                    } else {
+                        sqlErr = new SqlError("PROC-ERR1");
+                        sqlErr.setErrMsg(errResult.getValue());
+                        procCreated = false;
+                    }
+                }
+            }
+        }
+        return new TableValue<Boolean>(procCreated, sqlErr);
+    }
+
+    private boolean isSelectStatement(String statement) {
+        String str = new String(statement);
+        str = str.trim().toLowerCase();
+        return str.startsWith("select");
     }
 
     private String removeRowWithValueBindVarIfNeed(String plsql) {
@@ -530,24 +753,21 @@ public class CheckSqlExecutor {
 
     private String replaceBindVars(String sql, String tableName, String sqlColName, String entityId) {
         if ("imp_data_type".equalsIgnoreCase(tableName)) {
-            String newSql = replaceImpDataTypeParamByImpDataTypeId(sql, entityId);
-            newSql = replaceStaticImpDataTypeParam(newSql);
-            return newSql;
+            sql = replaceImpDataTypeParamByImpDataTypeId(sql, entityId);
+            sql = replaceStaticImpDataTypeParam(sql);
         } else if ("imp_entity".equalsIgnoreCase(tableName)) {
-            String newSql = replaceImpEntityParamsByEntityId(sql, entityId);
-            return newSql;
+            sql = replaceImpEntityParamsByEntityId(sql, entityId);
         } else if ("imp_spec".equalsIgnoreCase(tableName)) {
-            String newSql = replaceImpSpecExtProcParams(sql);
-            return newSql;
+            sql = replaceImpSpecExtProcParams(sql);
         } else if ("rule".equalsIgnoreCase(tableName) && "sql_text".equalsIgnoreCase(sqlColName)) {
-            String newSql = replaceRuleParams(sql, entityId);
-            return newSql;
+            sql = replaceRuleParams(sql, entityId);
         } else if ("wf_template_step".equalsIgnoreCase(tableName) || "wf_step".equalsIgnoreCase(tableName)) {
-            String newSql = replaceWfStepParams(sql);
-            return newSql;
-        } else {
-            return sql;
+            sql = replaceWfStepParams(sql);
         }
+
+        sql = replaceDateBindVars(sql);
+        sql = replaceNonDateBindVars(sql);
+        return sql;
     }
 
     private String replaceWfStepParams(String sql) {
@@ -613,20 +833,23 @@ public class CheckSqlExecutor {
                 newSql = newSql.replaceAll(":" + sqlParam, "0");
             }
         }
-
-        newSql = newSql.replaceAll(":ENTITY_PK", "0");
-        newSql = newSql.replaceAll(":VALUE", "0");
         return newSql;
     }
 
     private String wrapBeginEndIfNeed(String entityBlock) {
         String str = new String(entityBlock);
         str = str.trim().toLowerCase();
-        if (str.startsWith("select") || str.startsWith("declare") || str.startsWith("begin")) {
+        if (isPlsqlBlock(str)) {
             return entityBlock;
         } else {
             return "begin\r\n" + entityBlock + "\r\nend;";
         }
+    }
+
+    private boolean isPlsqlBlock(String val) {
+        String str = new String(val);
+        str = str.trim().toLowerCase();
+        return str.startsWith("declare") || str.startsWith("begin");
     }
 
     private String wrapBlockAsProc(String entityBlock) {
@@ -640,41 +863,12 @@ public class CheckSqlExecutor {
         return ddl.toString();
     }
 
-    private boolean testSelectQuery(String sql, Configuration configuration) {
-        String limitedSql = "select * from (\r\n" + sql + "\r\n) where rownum = 1";
-        String woutDateBindVars = replaceDateBindVars(limitedSql);
-        TGSqlParser pareparedSqlParser;
-        try {
-            pareparedSqlParser = SqlParser.getParser(woutDateBindVars);
-        } catch (Exception e1) {
-            logger.info(INFO_MARKER, "Invalid limitted SQL without bind vars:\r\nlimitted SQL [{}]\r\n wout vars [{}]",
-                    limitedSql, woutDateBindVars);
-            throw new UnexpectedException(e1);
-        }
-        Map<String, Object> paramMap = getSqlParamMap(pareparedSqlParser);
-        if (configuration.isUseSecondTest()) {
-            try {
-                test2NamedParamJdbcTemplate.queryForRowSet(woutDateBindVars, paramMap);
-            } catch (DataAccessException e) {
-                // try {
-                // test1NamedParamJdbcTemplate.queryForRowSet(sql,
-                // paramMap);
-                // } catch (DataAccessException e2) {
-                sqlError = new SqlError(SqlError.SELECT_ERR_TYPE + "2");
-                sqlError.setErrMsg(e.getMessage());
-                return false;
-                // }
-            }
-        } else {
-            try {
-                test1NamedParamJdbcTemplate.queryForRowSet(woutDateBindVars, paramMap);
-            } catch (DataAccessException e) {
-                sqlError = new SqlError(SqlError.SELECT_ERR_TYPE + "1");
-                sqlError.setErrMsg(e.getMessage());
-                return false;
-            }
-        }
-        return true;
+    private String wrapSelectAsView(String selectQuery) {
+        StringBuilder ddl = new StringBuilder("create or replace view ");
+        ddl.append(SELECT_VIEW_NAME);
+        ddl.append(" as\r\n ");
+        ddl.append(selectQuery);
+        return ddl.toString();
     }
 
     private String replaceDateBindVars(String sql) {
@@ -686,6 +880,10 @@ public class CheckSqlExecutor {
         return sql;
     }
 
+    private String replaceNonDateBindVars(String sql) {
+        return SqlParser.replaceBindVars(sql, "0");
+    }
+
     private String removeSemicolonAtTheEnd(String sql) {
         String newSql = new String(sql.trim());
         if (newSql.endsWith(";")) {
@@ -695,78 +893,28 @@ public class CheckSqlExecutor {
     }
 
     private String replaceStaticImpDataTypeParam(String sql) {
-        String newSql = new String(sql);
-        newSql = newSql.replaceAll("\\[USER_ID\\]", "p");
-        newSql = newSql.replaceAll("\\[PROGRAM_ID\\]", "p");
-        newSql = newSql.replaceAll("\\[DATE_FORMAT\\]", "p");
-        newSql = newSql.replaceAll("\\[COLUMN_NAME\\]", "p");
-        return newSql;
+        sql = sql.replaceAll(":ENTITY_PK", "0");
+        sql = sql.replaceAll(":VALUE", "0");
+        sql = sql.replaceAll(":\\[USER_ID\\]", "0");
+        sql = sql.replaceAll(":\\[PROGRAM_ID\\]", "0");
+        sql = sql.replaceAll("\\[DATE_FORMAT\\]", "p");
+        sql = sql.replaceAll("\\[COLUMN_NAME\\]", "p");
+        sql = sql.replaceAll(":TABLE_NAME", "xitor");
+        return sql;
     }
 
-    private Map<String, Object> getSqlParamMap(TGSqlParser parser) {
-        List<String> sqlParams = SqlParser.getParams(parser);
-        Map<String, Object> paramMap = new HashMap<String, Object>();
-        for (String paramName : sqlParams) {
-            paramMap.put(paramName, "0");
-        }
-        return paramMap;
-    }
-
-    private TGSqlParser parseSelectQuery(String selectQuery) {
-        TGSqlParser parser;
+    private TableValue<SqlRowSet> getSqlRowSetData(CheckSqlQuery query) {
+        SqlRowSet sqlRowSet = null;
+        SqlError sqlErr = null;
         try {
-            parser = SqlParser.getParser(selectQuery);
-        } catch (Exception e) {
-            sqlError = new SqlError("PARSE-QUERY");
-            sqlError.setErrMsg(e.getMessage());
-            parser = null;
-        }
-        return parser;
-    }
-
-    private String getStringVal(SqlRowSet sqlRowSet, int numCol) {
-        int colType = sqlRowSet.getMetaData().getColumnType(numCol);
-        String entitySql;
-        if (Types.CLOB == colType) {
-            Clob clobObj = (Clob) sqlRowSet.getObject(numCol);
-
-            InputStream in;
-            try {
-                in = clobObj.getAsciiStream();
-            } catch (SQLException e3) {
-                sqlError = new SqlError("Clob2Stream");
-                sqlError.setErrMsg(e3.getMessage());
-                return null;
-            }
-            StringWriter w = new StringWriter();
-            try {
-                IOUtils.copy(in, w);
-            } catch (IOException e3) {
-                sqlError = new SqlError("Stream2Writer");
-                sqlError.setErrMsg(e3.getMessage());
-                return null;
-            }
-            entitySql = w.toString();
-        } else {
-            entitySql = sqlRowSet.getString(numCol);
-        }
-        if (StringUtils.isBlank(entitySql)) {
-            sqlError = new SqlError("BLANK-SQL");
-            sqlError.setErrMsg("SQL is blank");
-            return null;
-        }
-        return entitySql;
-    }
-
-    private SqlRowSet getSqlRowSetData(String sql) {
-        SqlRowSet sqlRowSet;
-        try {
-            sqlRowSet = owner1JdbcTemplate.queryForRowSet(sql);
+            sqlRowSet = owner1JdbcTemplate.queryForRowSet(query.getSql());
         } catch (DataAccessException e1) {
-            sqlError = new SqlError("SELECT-ENTITY");
-            sqlError.setErrMsg(e1.getMessage());
             sqlRowSet = null;
+            sqlErr = new SqlError(query.getQueryType() + "-ENTITY");
+            sqlErr.setErrMsg(e1.getMessage());
+
         }
-        return sqlRowSet;
+        return new TableValue<SqlRowSet>(sqlRowSet, sqlErr);
     }
+
 }

@@ -14,34 +14,22 @@ public class SqlError {
     private String errType;
     private String originalQuery;
 
-    public String toShortString() {
-        StringBuilder msg = new StringBuilder(LINE_DELIMITER);
-        msg.append("[");
-        msg.append(tableName);
-        if (sqlColName != null && (!sqlColName.trim().isEmpty())) {
-            msg.append(".");
-            msg.append(sqlColName);
-        }
-        msg.append("][");
-        if (entityIdColName != null && (!entityIdColName.trim().isEmpty())) {
-            msg.append(entityIdColName);
-            msg.append("=");
-            if (entityId != null && (!entityId.trim().isEmpty())) {
-                msg.append(entityId);
-            }
-            msg.append("][");
-        }
-        msg.append(errMsg);
-        msg.append("]");
-        return msg.toString();
-    }
+    private int phase = -1;
+    private int table = -1;
+    private int row = -1;
 
     @Override
     public String toString() {
         StringBuilder msg = new StringBuilder(LINE_DELIMITER);
         msg.append("==========================");
         msg.append(LINE_DELIMITER);
-        msg.append("[");
+        msg.append("[Phase=");
+        msg.append(phase);
+        msg.append(",table=");
+        msg.append(table);
+        msg.append(",row=");
+        msg.append(row);
+        msg.append("][");
         msg.append(errType);
         msg.append("][");
         msg.append(tableName);
@@ -116,6 +104,30 @@ public class SqlError {
         }
         msg.append("==========================");
         return msg.toString();
+    }
+
+    public int getPhase() {
+        return phase;
+    }
+
+    public void setPhase(int phase) {
+        this.phase = phase;
+    }
+
+    public int getTable() {
+        return table;
+    }
+
+    public void setTable(int table) {
+        this.table = table;
+    }
+
+    public int getRow() {
+        return row;
+    }
+
+    public void setRow(int row) {
+        this.row = row;
     }
 
     public String getOriginalQuery() {

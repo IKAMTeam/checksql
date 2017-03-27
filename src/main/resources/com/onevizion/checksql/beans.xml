@@ -56,7 +56,7 @@
     </bean> 
 
     <bean id="test1NamedParamJdbcTemplate" class="org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate">
-        <constructor-arg ref="test1DataSource" />
+        <constructor-arg ref="test1JdbcTemplate" />
     </bean>
 
     <!--============================== JDBC DataSource OWNER ==============================-->
@@ -105,7 +105,7 @@
     </bean> 
 
     <bean id="test2NamedParamJdbcTemplate" class="org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate">
-        <constructor-arg ref="test2DataSource" />
+        <constructor-arg ref="test2JdbcTemplate" />
     </bean>
 
     <tx:annotation-driven />
