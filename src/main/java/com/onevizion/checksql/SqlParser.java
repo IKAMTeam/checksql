@@ -33,7 +33,12 @@ public class SqlParser {
     public static TGSqlParser getParser(String sqlText) {
         TGSqlParser sqlparser = new TGSqlParser(EDbVendor.dbvoracle);
         sqlparser.sqltext = sqlText;
-        int ret = sqlparser.parse();
+        int ret;
+        try {
+            ret = sqlparser.parse();
+        } catch (Exception e) {
+            throw new SqlParsingException("SQLParser can not parse SQL:\r\n" + sqlText + "\r\n", e);
+        }
         if (ret != 0) {
             ArrayList<TSyntaxError> errors = sqlparser.getSyntaxErrors();
             TSyntaxError error = errors.get(0);
@@ -260,7 +265,7 @@ public class SqlParser {
             return null;
         }
     }
-    
+
     public static String replaceBindVars(String sql, String replacedByVal) {
         TGSqlParser sqlParser = getParser(sql);
         for (int i = 0; i < sqlParser.sourcetokenlist.size(); i++) {
@@ -271,7 +276,7 @@ public class SqlParser {
         }
         return sqlParser.sqlstatements.get(0).toString();
     }
-    
+
     public static String removeIntoClause(String sql) {
         TGSqlParser parser = getParser(sql);
         List<String> tokens = new ArrayList<String>();

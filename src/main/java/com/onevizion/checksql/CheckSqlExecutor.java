@@ -137,7 +137,7 @@ public class CheckSqlExecutor {
                 if (isCreateViewGranted) {
                     revokeCreateViewPriv(config);
                 }
-                logger.info(INFO_MARKER, "SQL Checker is failed with error\r\n{}", e.toString());
+                logger.info(INFO_MARKER, "SQL Checker is failed with error\r\n{}", e);
                 return;
             }
             if (isCreateViewGranted) {
@@ -412,7 +412,15 @@ public class CheckSqlExecutor {
 
                 // Remove unavailable statements of SELECT
                 String selectSql = new String(entitySql.getValue());
-                if (SelectQuery.IMP_DATA_TYPE_PARAM.getTableName().equalsIgnoreCase(sel.getTableName())) {
+                if (StringUtils.isBlank(selectSql)) {
+                    logger.info(INFO_MARKER,
+                            "Phase 1/2 Table {}/{} Row {}/{}: Skip because a value with SELECT is blank",
+                            sel.getOrdNum(), tableNums,
+                            entitySqls.getValue().getRow(),
+                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
+                            selectSql);
+                    continue;
+                } else if (SelectQuery.IMP_DATA_TYPE_PARAM.getTableName().equalsIgnoreCase(sel.getTableName())) {
                     selectSql = replaceStaticImpDataTypeParam(selectSql);
                 } else if (SelectQuery.IMP_ENTITY.getTableName().equalsIgnoreCase(sel.getTableName())
                         && isPlsqlBlock(selectSql)) {
@@ -477,7 +485,8 @@ public class CheckSqlExecutor {
                         entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME));
             }
             if (isEmptyTable) {
-                logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row 0/0: Table {} is empty", sel.getOrdNum(), tableNums, sel.getTableName());
+                logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row 0/0: Table {} is empty", sel.getOrdNum(), tableNums,
+                        sel.getTableName());
             }
         }
         if (dropView) {
