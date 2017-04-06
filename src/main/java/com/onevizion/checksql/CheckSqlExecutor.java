@@ -455,6 +455,16 @@ public class CheckSqlExecutor {
                 }
                 selectSql = removeSemicolonAtTheEnd(selectSql);
                 selectSql = replaceDateBindVars(selectSql);
+
+                if (StringUtils.isBlank(selectSql)) {
+                    logger.info(INFO_MARKER,
+                            "Phase 1/2 Table {}/{} Row {}/{}: Skip because after preparing SELECT it becomes empty ",
+                            sel.getOrdNum(), tableNums,
+                            entitySqls.getValue().getRow(),
+                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
+                            entitySql.getValue());
+                    continue;
+                }
                 selectSql = replaceNonDateBindVars(selectSql);
                 selectSql = "select 1 as val from (" + selectSql + ")";
 
