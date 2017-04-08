@@ -165,7 +165,7 @@ public class CheckSqlExecutor {
                 if (isCreateProcGranted) {
                     revokeCreateProcPriv(config);
                 }
-                logger.info(INFO_MARKER, "SQL Checker is failed with error\r\n{}", e.toString());
+                logger.info(INFO_MARKER, "SQL Checker is failed with error\r\n{}", e);
                 return;
             }
             if (isCreateProcGranted) {
@@ -663,8 +663,28 @@ public class CheckSqlExecutor {
 
                 String plsqlBlock = wrapBeginEndIfNeed(entityBlock.getValue());
                 plsqlBlock = removeRowWithValueBindVarIfNeed(plsqlBlock);
-                plsqlBlock = replaceBindVars(plsqlBlock, plsql.getTableName(), plsql.getSqlColName(),
-                        entityId.getValue());
+                try {
+                    plsqlBlock = replaceBindVars(plsqlBlock, plsql.getTableName(), plsql.getSqlColName(),
+                            entityId.getValue());
+                } catch (Exception e) {
+                    SqlError err = new SqlError("PLSQL-REPLACE-BIND");
+                    err.setTableName(plsql.getTableName());
+                    err.setEntityIdColName(plsql.getPrimKeyColName());
+                    err.setSqlColName(plsql.getSqlColName());
+                    err.setEntityId(entityId.getValue());
+                    err.setQuery(plsqlBlock);
+                    err.setOriginalQuery(entityBlock.getValue());
+                    err.setPhase(2);
+                    err.setTable(plsql.getOrdNum());
+                    err.setRow(entitySqls.getValue().getRow());
+                    logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} Row {}/{}: Error\r\n{}\r\n{}", plsql.getOrdNum(),
+                            tableNums,
+                            entitySqls.getValue().getRow(),
+                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
+                            e.getMessage(), plsqlBlock);
+                    logSqlError(err);
+                    continue;
+                }
 
                 TableValue<Boolean> plsqlBlockResult = isPlsqlBlock(config, plsqlBlock);
                 dropProc = true;
@@ -888,9 +908,7 @@ public class CheckSqlExecutor {
     }
 
     private boolean isPlsqlBlock(String val) {
-        String str = new String(val);
-        str = str.trim().toLowerCase();
-        return str.startsWith("declare") || str.startsWith("begin");
+        return !isSelectStatement(val);
     }
 
     private String wrapBlockAsProc(String entityBlock) {
