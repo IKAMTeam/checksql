@@ -22,6 +22,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
 import org.springframework.stereotype.Component;
 
+import com.onevizion.checksql.exception.SqlParsingException;
 import com.onevizion.checksql.exception.UnexpectedException;
 import com.onevizion.checksql.vo.AppSettings;
 import com.onevizion.checksql.vo.CheckSqlQuery;
@@ -130,7 +131,12 @@ public class CheckSqlExecutor {
         configAppSettings(config);
 
         if (config.isEnabledSql()) {
-            boolean isCreateViewGranted = grantCreateViewPrivIfNeed(config);
+            boolean isCreateViewGranted = false;
+            if (config.isCheckViewPriv()) {
+                isCreateViewGranted = grantCreateViewPrivIfNeed(config);
+            } else {
+                logger.info(INFO_MARKER, "The check is disabled if there is 'create any view' privilege");
+            }
             try {
                 testSelectQueries(config);
             } catch (Exception e) {
@@ -147,7 +153,12 @@ public class CheckSqlExecutor {
             logger.info(INFO_MARKER, "Testing of SELECT queries is disabled");
         }
         if (config.isEnabledPlSql()) {
-            boolean isCreateProcGranted = grantCreateProcPrivIfNeed(config);
+            boolean isCreateProcGranted = false;
+            if (config.isCheckProcedurePriv()) {
+                isCreateProcGranted = grantCreateProcPrivIfNeed(config);
+            } else {
+                logger.info(INFO_MARKER, "The check is disabled if there is 'create procedure view' privilege");
+            }
             try {
                 testPlsqlBlocks(config);
             } catch (Exception e) {
@@ -410,17 +421,18 @@ public class CheckSqlExecutor {
                     continue;
                 }
 
-                // Remove unavailable statements of SELECT
-                String selectSql = new String(entitySql.getValue());
-                if (StringUtils.isBlank(selectSql)) {
+                if (StringUtils.isBlank(entitySql.getValue())) {
                     logger.info(INFO_MARKER,
                             "Phase 1/2 Table {}/{} Row {}/{}: Skip because a value with SELECT is blank",
                             sel.getOrdNum(), tableNums,
                             entitySqls.getValue().getRow(),
-                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                            selectSql);
+                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME));
                     continue;
-                } else if (SelectQuery.IMP_DATA_TYPE_PARAM.getTableName().equalsIgnoreCase(sel.getTableName())) {
+                }
+
+                // Remove unavailable statements of SELECT
+                String selectSql = new String(entitySql.getValue());
+                if (SelectQuery.IMP_DATA_TYPE_PARAM.getTableName().equalsIgnoreCase(sel.getTableName())) {
                     selectSql = replaceStaticImpDataTypeParam(selectSql);
                 } else if (SelectQuery.IMP_ENTITY.getTableName().equalsIgnoreCase(sel.getTableName())
                         && isPlsqlBlock(selectSql)) {
@@ -455,17 +467,27 @@ public class CheckSqlExecutor {
                 }
                 selectSql = removeSemicolonAtTheEnd(selectSql);
                 selectSql = replaceDateBindVars(selectSql);
-
-                if (StringUtils.isBlank(selectSql)) {
-                    logger.info(INFO_MARKER,
-                            "Phase 1/2 Table {}/{} Row {}/{}: Skip because after preparing SELECT it becomes empty ",
-                            sel.getOrdNum(), tableNums,
+                try {
+                    selectSql = replaceNonDateBindVars(selectSql);
+                } catch (SqlParsingException e) {
+                    SqlError err = new SqlError("REPLCAE-BIND-VARS");
+                    err.setTableName(sel.getTableName());
+                    err.setEntityIdColName(sel.getPrimKeyColName());
+                    err.setSqlColName(sel.getSqlColName());
+                    err.setEntityId(entityId.getValue());
+                    err.setQuery(selectSql);
+                    err.setOriginalQuery(entitySql.getValue());
+                    err.setPhase(1);
+                    err.setTable(sel.getOrdNum());
+                    err.setRow(entitySqls.getValue().getRow());
+                    err.setErrMsg("Can not parse a SELECT to replcae bind variables\r\n" + selectSql);
+                    logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row {}/{}: {}", sel.getOrdNum(), tableNums,
                             entitySqls.getValue().getRow(),
                             entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                            entitySql.getValue());
+                            err.getErrMsg());
+                    logSqlError(err);
                     continue;
                 }
-                selectSql = replaceNonDateBindVars(selectSql);
                 selectSql = "select 1 as val from (" + selectSql + ")";
 
                 // Check if a query is Select statement and there are privs with help of creating Oracle View. If view
