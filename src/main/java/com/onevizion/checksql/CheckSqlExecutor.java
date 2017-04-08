@@ -656,6 +656,15 @@ public class CheckSqlExecutor {
                     continue;
                 }
 
+                if (StringUtils.isBlank(entityBlock.getValue())) {
+                    logger.info(INFO_MARKER,
+                            "Phase 2/2 Table {}/{} Row {}/{}: Skip because a value with PLSQL is blank",
+                            plsql.getOrdNum(), tableNums,
+                            entitySqls.getValue().getRow(),
+                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME));
+                    continue;
+                }
+
                 if (isSelectStatement(entityBlock.getValue())) {
                     // In some cases, the table column can contain PLSQL blocks and SELECT statements
                     continue;
@@ -791,6 +800,9 @@ public class CheckSqlExecutor {
     }
 
     private boolean isSelectStatement(String statement) {
+        if (StringUtils.isBlank(statement)) {
+            return false;
+        }
         String str = new String(statement);
         str = str.trim().toLowerCase();
         return str.startsWith("select");
