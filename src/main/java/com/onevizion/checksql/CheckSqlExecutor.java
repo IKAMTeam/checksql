@@ -1,8 +1,6 @@
 package com.onevizion.checksql;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.SortedMap;
@@ -97,23 +95,6 @@ public class CheckSqlExecutor {
     public static final Marker INFO_MARKER = MarkerFactory.getMarker("INFO_SQL");
 
     private static final Marker DATA_MARKER = MarkerFactory.getMarker("DATA_SQL");
-
-    private static final List<String> TABLE_NAMES = Collections.unmodifiableList(Arrays.asList(
-            "config_field",
-            "excel_orch_mapping",
-            "imp_entity_req_field",
-            "notif",
-            "report_lookup",
-            "report_sql",
-            "tm_setup",
-            "xitor_req_field",
-            "imp_data_map",
-            "imp_entity",
-            "rule_class_param_value",
-            "imp_spec",
-            "rule",
-            "wf_step",
-            "wf_template_step"));
 
     private static final String FIND_FIRST_PROGRAM_ID_NEW = "select program_id from program where rownum < 2 and program_id <> 0";
 
@@ -342,20 +323,21 @@ public class CheckSqlExecutor {
 
         });
 
-        for (String tableName : TABLE_NAMES) {
-            tableStats.put(tableName, 0);
+        for (SelectQuery select : SelectQuery.values()) {
+            tableStats.put(select.getTableName().toLowerCase(), 0);
+        }
+        for (PlsqlBlock plsql : PlsqlBlock.values()) {
+            tableStats.put(plsql.getTableName().toLowerCase(), 0);
         }
 
         for (SqlError err : sqlErrors) {
             if (StringUtils.isBlank(err.getTableName())) {
                 continue;
             }
-            String tableName = new String(err.getTableName()).toLowerCase();
-            Integer tableCnt = tableStats.get(tableName);
-            if (tableCnt != null) {
-                tableCnt++;
-                tableStats.put(tableName, tableCnt);
-            }
+            String tableName = err.getTableName().toLowerCase();
+            Integer count = tableStats.get(tableName);
+            count++;
+            tableStats.put(tableName, count);
         }
         logger.info(INFO_MARKER, "========TABLE STATS=========");
         for (String tableName : tableStats.keySet()) {
@@ -470,7 +452,7 @@ public class CheckSqlExecutor {
                 try {
                     selectSql = replaceNonDateBindVars(selectSql);
                 } catch (SqlParsingException e) {
-                    SqlError err = new SqlError("REPLCAE-BIND-VARS");
+                    SqlError err = new SqlError("REPLACE-BIND-VARS");
                     err.setTableName(sel.getTableName());
                     err.setEntityIdColName(sel.getPrimKeyColName());
                     err.setSqlColName(sel.getSqlColName());
@@ -480,7 +462,7 @@ public class CheckSqlExecutor {
                     err.setPhase(1);
                     err.setTable(sel.getOrdNum());
                     err.setRow(entitySqls.getValue().getRow());
-                    err.setErrMsg("Can not parse a SELECT to replcae bind variables\r\n" + selectSql);
+                    err.setErrMsg("Can not parse a SELECT to replace bind variables\r\n" + selectSql);
                     logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row {}/{}: {}", sel.getOrdNum(), tableNums,
                             entitySqls.getValue().getRow(),
                             entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
@@ -488,7 +470,7 @@ public class CheckSqlExecutor {
                     logSqlError(err);
                     continue;
                 }
-                selectSql = "select 1 as val from (" + selectSql + ")";
+                selectSql = "select 1 as val from (\r\n" + selectSql + "\r\n)";
 
                 // Check if a query is Select statement and there are privs with help of creating Oracle View. If view
                 // is created then it is Select statement or there are unhandled errors
