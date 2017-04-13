@@ -56,22 +56,6 @@ public class CheckSqlExecutor {
     @Resource
     private AppSettings appSettings;
 
-    private static final String CREATE_TESTVIEWPRIV_DDL = "create or replace view checksql_testviewpriv as select * from dual";
-
-    private static final String DROP_TESTVIEWPRIV_DDL = "drop view checksql_testviewpriv";
-
-    private static final String CREATE_TESTPROCPRIV_DDL = "create or replace procedure checksql_testprocpriv as begin null; end";
-
-    private static final String DROP_TESTPROCPRIV_DDL = "drop procedure checksql_testprocpriv";
-
-    private static final String GRAND_CREATE_VIEW_DDL = "grant create view to ";
-
-    private static final String REVOKE_CREATE_VIEW_DDL = "revoke create view to ";
-
-    private static final String GRAND_CREATE_PROC_DDL = "grant create procedure to ";
-
-    private static final String REVOKE_CREATE_PROC_DDL = "revoke create procedure to ";
-
     private static final String FIND_IMP_DATA_TYPE_PARAM_SQL_PARAM_BY_IMP_DATA_TYPE_ID = "select sql_parameter from imp_data_type_param where imp_data_type_id = ?";
 
     private static final String FIND_RULE_PARAM_SQL_PARAM_BY_ENTITY_ID = "select ID_FIELD from rule r join rule_type t on (r.rule_type_id = t.rule_type_id) where r.rule_id = ?";
@@ -112,137 +96,27 @@ public class CheckSqlExecutor {
         configAppSettings(config);
 
         if (config.isEnabledSql()) {
-            boolean isCreateViewGranted = false;
-            if (config.isCheckViewPriv()) {
-                isCreateViewGranted = grantCreateViewPrivIfNeed(config);
-            } else {
-                logger.info(INFO_MARKER, "The check is disabled if there is 'create any view' privilege");
-            }
             try {
                 testSelectQueries(config);
             } catch (Exception e) {
-                if (isCreateViewGranted) {
-                    revokeCreateViewPriv(config);
-                }
                 logger.info(INFO_MARKER, "SQL Checker is failed with error\r\n{}", e);
                 return;
-            }
-            if (isCreateViewGranted) {
-                revokeCreateViewPriv(config);
             }
         } else {
             logger.info(INFO_MARKER, "Testing of SELECT queries is disabled");
         }
         if (config.isEnabledPlSql()) {
-            boolean isCreateProcGranted = false;
-            if (config.isCheckProcedurePriv()) {
-                isCreateProcGranted = grantCreateProcPrivIfNeed(config);
-            } else {
-                logger.info(INFO_MARKER, "The check is disabled if there is 'create procedure view' privilege");
-            }
             try {
                 testPlsqlBlocks(config);
             } catch (Exception e) {
-                if (isCreateProcGranted) {
-                    revokeCreateProcPriv(config);
-                }
                 logger.info(INFO_MARKER, "SQL Checker is failed with error\r\n{}", e);
                 return;
-            }
-            if (isCreateProcGranted) {
-                revokeCreateProcPriv(config);
             }
         } else {
             logger.info(INFO_MARKER, "Testing of PLSQL blocks is disabled");
         }
         logSqlErrors();
         logger.info(INFO_MARKER, "SQL Checker is completed");
-    }
-
-    private void revokeCreateProcPriv(Configuration config) {
-        if (config.isUseSecondTest()) {
-            owner2JdbcTemplate.update(REVOKE_CREATE_PROC_DDL + config.getTest2DbSchema());
-        } else {
-            owner1JdbcTemplate.update(REVOKE_CREATE_PROC_DDL + config.getTest1DbSchema());
-        }
-        logger.info(INFO_MARKER, "Privs on 'create procedure' is revoked");
-    }
-
-    private boolean grantCreateProcPrivIfNeed(Configuration config) {
-        boolean isTestProcCreated = true;
-        try {
-            if (config.isUseSecondTest()) {
-                test2JdbcTemplate.update(CREATE_TESTPROCPRIV_DDL);
-            } else {
-                test1JdbcTemplate.update(CREATE_TESTPROCPRIV_DDL);
-            }
-            logger.info(INFO_MARKER, "Procedure is created to check if there are privs on 'create procedure'");
-        } catch (DataAccessException e) {
-            isTestProcCreated = false;
-            logger.info(INFO_MARKER, "There are no privs on 'create procedure'");
-        }
-
-        boolean revokePriv = true;
-        if (isTestProcCreated) {
-            if (config.isUseSecondTest()) {
-                test2JdbcTemplate.update(DROP_TESTPROCPRIV_DDL);
-            } else {
-                test1JdbcTemplate.update(DROP_TESTPROCPRIV_DDL);
-            }
-            logger.info(INFO_MARKER, "Procedure is deleted to check if there are privs on 'create procedure'");
-            revokePriv = false;
-        } else {
-            if (config.isUseSecondTest()) {
-                owner2JdbcTemplate.update(GRAND_CREATE_PROC_DDL + config.getTest2DbSchema());
-            } else {
-                owner1JdbcTemplate.update(GRAND_CREATE_PROC_DDL + config.getTest1DbSchema());
-            }
-            logger.info(INFO_MARKER, "Privs on 'create procedure' is granted");
-        }
-        return revokePriv;
-    }
-
-    private void revokeCreateViewPriv(Configuration config) {
-        if (config.isUseSecondTest()) {
-            owner2JdbcTemplate.update(REVOKE_CREATE_VIEW_DDL + config.getTest2DbSchema());
-        } else {
-            owner1JdbcTemplate.update(REVOKE_CREATE_VIEW_DDL + config.getTest1DbSchema());
-        }
-        logger.info(INFO_MARKER, "Privs on 'create view' is revoked");
-    }
-
-    private boolean grantCreateViewPrivIfNeed(Configuration config) {
-        boolean isTestViewCreated = true;
-        try {
-            if (config.isUseSecondTest()) {
-                test2JdbcTemplate.update(CREATE_TESTVIEWPRIV_DDL);
-            } else {
-                test1JdbcTemplate.update(CREATE_TESTVIEWPRIV_DDL);
-            }
-            logger.info(INFO_MARKER, "View is created to check if there are privs on 'create view'");
-        } catch (DataAccessException e) {
-            logger.info(INFO_MARKER, "There are no privs on 'create view'");
-            isTestViewCreated = false;
-        }
-
-        boolean revokePriv = true;
-        if (isTestViewCreated) {
-            if (config.isUseSecondTest()) {
-                test2JdbcTemplate.update(DROP_TESTVIEWPRIV_DDL);
-            } else {
-                test1JdbcTemplate.update(DROP_TESTVIEWPRIV_DDL);
-            }
-            logger.info(INFO_MARKER, "View is deleted to check if there are privs on 'create view'");
-            revokePriv = false;
-        } else {
-            if (config.isUseSecondTest()) {
-                owner2JdbcTemplate.update(GRAND_CREATE_VIEW_DDL + config.getTest2DbSchema());
-            } else {
-                owner1JdbcTemplate.update(GRAND_CREATE_VIEW_DDL + config.getTest1DbSchema());
-            }
-            logger.info(INFO_MARKER, "Privs on 'create view' is granted");
-        }
-        return revokePriv;
     }
 
     private void configAppSettings(Configuration config) {

@@ -16,26 +16,8 @@ public class Configuration {
     private String owner2DbSchema;
     private String test1DbSchema;
     private String test2DbSchema;
-    private boolean checkViewPriv;
-    private boolean checkProcedurePriv;
 
     private boolean useSecondTest;
-
-    public boolean isCheckViewPriv() {
-        return checkViewPriv;
-    }
-
-    public void setCheckViewPriv(boolean checkViewPriv) {
-        this.checkViewPriv = checkViewPriv;
-    }
-
-    public boolean isCheckProcedurePriv() {
-        return checkProcedurePriv;
-    }
-
-    public void setCheckProcedurePriv(boolean checkProcedurePriv) {
-        this.checkProcedurePriv = checkProcedurePriv;
-    }
 
     public String getRemoteOwner() {
         return remoteOwner;

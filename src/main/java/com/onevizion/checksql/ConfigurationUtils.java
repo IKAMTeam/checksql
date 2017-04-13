@@ -32,16 +32,6 @@ public class ConfigurationUtils {
             configuration.setEnabledSql(Boolean.parseBoolean(elem.getChild("sql").getChildText("enabled")));
             configuration.setEnabledPlSql(Boolean.parseBoolean(elem.getChild("pl_sql").getChildText("enabled")));
 
-            Element checkViewPrivElem = elem.getChild("check_view_priv");
-            if (checkViewPrivElem != null) {
-                configuration.setCheckViewPriv(Boolean.parseBoolean(checkViewPrivElem.getText()));
-            }
-
-            Element checkProcPrivElem = elem.getChild("check_procedure_priv");
-            if (checkProcPrivElem != null) {
-                configuration.setCheckProcedurePriv(Boolean.parseBoolean(checkProcPrivElem.getText()));
-            }
-
             String skipTablesSql = elem.getChild("sql").getChildText("disable-tables");
             if (StringUtils.isNotBlank(skipTablesSql)) {
                 skipTablesSqlList = Arrays.asList(skipTablesSql.split(","));

@@ -4,8 +4,6 @@
     <remote_user>username/password@host:port:SID</remote_user>
     <local_owner>username/password@host:port:SID</local_owner>
     <local_user>username/password@host:port:SID</local_user>
-    <check_view_priv>false</check_view_priv>
-    <check_procedure_priv>false</check_procedure_priv>
     <sql>
         <enabled>true</enabled>
         <disable-tables>config_field,excel_orch_mapping,grid_page_field,imp_entity_req_field,notif,report_lookup,report_sql,rule_class_param,rule_type,tm_setup,xitor_req_field,imp_data_type_param,imp_data_map,imp_entity,rule_class_param_value</disable-tables>
