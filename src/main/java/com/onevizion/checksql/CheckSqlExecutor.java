@@ -768,10 +768,16 @@ public class CheckSqlExecutor {
     private String wrapBeginEndIfNeed(String entityBlock) {
         String str = new String(entityBlock);
         str = str.trim().toLowerCase();
+        boolean wrapBlock = false;
         if (isPlsqlBlock(str)) {
-            return entityBlock;
+            wrapBlock = !str.startsWith("declare") && !str.startsWith("begin");
         } else {
+            wrapBlock = true;
+        }
+        if (wrapBlock) {
             return "begin\r\n" + entityBlock + "\r\nend;";
+        } else {
+            return entityBlock;
         }
     }
 
