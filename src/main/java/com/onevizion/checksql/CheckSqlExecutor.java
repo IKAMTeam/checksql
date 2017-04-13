@@ -542,6 +542,7 @@ public class CheckSqlExecutor {
                     err.setPhase(2);
                     err.setTable(plsql.getOrdNum());
                     err.setRow(entitySqls.getValue().getRow());
+                    err.setErrMsg(e.getMessage());
                     logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} Row {}/{}: Error\r\n{}\r\n{}", plsql.getOrdNum(),
                             tableNums,
                             entitySqls.getValue().getRow(),
