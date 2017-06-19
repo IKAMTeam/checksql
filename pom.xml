@@ -16,14 +16,14 @@
     
     <dependency>
         <groupId>com.oracle.jdbc</groupId>
-        <artifactId>ucp</artifactId>
-        <version>12.1.0.2</version>
+        <artifactId>ojdbc8</artifactId>
+        <version>12.2.0.1</version>
     </dependency>
 
-    <dependency>
-        <groupId>oracle</groupId>
-        <artifactId>oracle-jdbc-driver</artifactId>
-        <version>12.1.0.2</version>
+     <dependency>
+          <groupId>com.oracle.jdbc</groupId>
+          <artifactId>ucp</artifactId>
+          <version>12.2.0.1</version>
     </dependency>
     
     <dependency>
@@ -111,6 +111,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
+                <version>1.7.1</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -146,45 +147,32 @@
                     </filters>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>2.3.2</version>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
     
     <repositories>
         <repository>
-            <id>internal</id>
-            <name>internal</name>
-            <url>${mvn.repo.addr}/archiva/repository/internal/</url>
-        </repository>
-        <repository>
-            <id>snapshots</id>
-            <name>snapshots</name>
-            <url>${mvn.repo.addr}/archiva/repository/snapshots/</url>
+            <id>maven.oracle.com</id>
+            <url>https://maven.oracle.com</url>
+            <layout>default</layout>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
             <snapshots>
-                <updatePolicy>never</updatePolicy>
+                <enabled>false</enabled>
             </snapshots>
         </repository>
-        <repository>
-            <id>releases</id>
-            <name>releases</name>
-            <url>${mvn.repo.addr}/archiva/repository/releases/</url>
-            <layout>default</layout>
-        </repository>
     </repositories>
-
-    <distributionManagement>
-        <repository>
-            <id>releases</id>
-            <name>releases</name>
-            <url>${mvn.repo.addr}/archiva/repository/releases/</url>
-            <layout>default</layout>
-        </repository>
-        <snapshotRepository>
-            <id>snapshots</id>
-            <name>snapshots</name>
-            <url>${mvn.repo.addr}/archiva/repository/snapshots/</url>
-            <layout>default</layout>
-        </snapshotRepository>
-    </distributionManagement>
 
     <scm>
         <developerConnection>scm:git:https://github.com/IKAMTeam/checksql.git</developerConnection>
