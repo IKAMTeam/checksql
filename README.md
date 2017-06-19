@@ -7,7 +7,6 @@ To start create check-sql.xml file in working directory and set DB connection st
 and DB connection string for DB where SQL statements will be tested in <remote_user> parameter. Values may be the same.
 
 After start app will print progress, summary and additional information to the standard output. Summary will contain info on each table tested and may look like this:
-
 ========TABLE STATS========= 
 table=config_field, err-count=14 
 table=excel_orch_mapping, err-count=0 
