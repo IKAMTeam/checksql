@@ -29,20 +29,23 @@ public class ConfigurationUtils {
             configuration.setRemoteUser(elem.getChildText("remote_user"));
             configuration.setLocalOwner(elem.getChildText("local_owner"));
             configuration.setLocalUser(elem.getChildText("local_user"));
-            configuration.setEnabledSql(Boolean.parseBoolean(elem.getChild("sql").getChildText("enabled")));
-            configuration.setEnabledPlSql(Boolean.parseBoolean(elem.getChild("pl_sql").getChildText("enabled")));
+            if (elem.getChild("sql") != null) {
+            	configuration.setEnabledSql(Boolean.parseBoolean(elem.getChild("sql").getChildText("enabled")));
+                String skipTablesSql = elem.getChild("sql").getChildText("disable-tables");
+                if (StringUtils.isNotBlank(skipTablesSql)) {
+                    skipTablesSqlList = Arrays.asList(skipTablesSql.split(","));
+                }
+                configuration.setSkipTablesSql(skipTablesSqlList);
 
-            String skipTablesSql = elem.getChild("sql").getChildText("disable-tables");
-            if (StringUtils.isNotBlank(skipTablesSql)) {
-                skipTablesSqlList = Arrays.asList(skipTablesSql.split(","));
             }
-            configuration.setSkipTablesSql(skipTablesSqlList);
-
-            String skipTablesPlSql = elem.getChild("pl_sql").getChildText("disable-tables");
-            if (StringUtils.isNotBlank(skipTablesPlSql)) {
-                skipTablesPlSqlList = Arrays.asList(skipTablesPlSql.split(","));
+            if (elem.getChild("pl_sql") != null) {
+            	configuration.setEnabledPlSql(Boolean.parseBoolean(elem.getChild("pl_sql").getChildText("enabled")));
+            	String skipTablesPlSql = elem.getChild("pl_sql").getChildText("disable-tables");
+                if (StringUtils.isNotBlank(skipTablesPlSql)) {
+                    skipTablesPlSqlList = Arrays.asList(skipTablesPlSql.split(","));
+                }
+                configuration.setSkipTablesPlSql(skipTablesPlSqlList);
             }
-            configuration.setSkipTablesPlSql(skipTablesPlSqlList);
 
             if (StringUtils.isNotBlank(configuration.getLocalOwner())
                     && StringUtils.isNotBlank(configuration.getLocalUser())) {

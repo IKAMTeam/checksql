@@ -1,5 +1,6 @@
 package com.onevizion.checksql.vo;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class Configuration {
@@ -8,10 +9,10 @@ public class Configuration {
     private String remoteUser;
     private String localOwner;
     private String localUser;
-    private boolean enabledSql;
-    private boolean enabledPlSql;
-    private List<String> skipTablesSql;
-    private List<String> skipTablesPlSql;
+    private boolean enabledSql = true;
+    private boolean enabledPlSql = true;
+    private List<String> skipTablesSql = new ArrayList<String>();
+    private List<String> skipTablesPlSql = new ArrayList<String>();
     private String owner1DbSchema;
     private String owner2DbSchema;
     private String test1DbSchema;

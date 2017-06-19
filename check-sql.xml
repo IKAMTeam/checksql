@@ -2,6 +2,8 @@
 <root>
     <remote_owner>username/password@host:port:SID</remote_owner>
     <remote_user>username/password@host:port:SID</remote_user>
+    
+    <!--optional config
     <local_owner>username/password@host:port:SID</local_owner>
     <local_user>username/password@host:port:SID</local_user>
     <sql>
@@ -12,4 +14,5 @@
         <enabled>true</enabled>
         <disable-tables>imp_data_map,imp_data_type,imp_entity,imp_spec,rule,rule_class_param_value,wf_step,wf_template_step</disable-tables>
     </pl_sql>
+    -->
 </root>
