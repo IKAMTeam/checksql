@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.Marker;
 import org.slf4j.MarkerFactory;
 import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.InvalidResultSetAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
@@ -25,9 +26,10 @@ import com.onevizion.checksql.exception.UnexpectedException;
 import com.onevizion.checksql.vo.AppSettings;
 import com.onevizion.checksql.vo.CheckSqlQuery;
 import com.onevizion.checksql.vo.Configuration;
-import com.onevizion.checksql.vo.PlsqlBlock;
+//import com.onevizion.checksql.vo.PlsqlBlock;
 import com.onevizion.checksql.vo.SelectQuery;
 import com.onevizion.checksql.vo.SqlError;
+import com.onevizion.checksql.vo.TableNode;
 import com.onevizion.checksql.vo.TableValue;
 
 import oracle.ucp.jdbc.PoolDataSourceImpl;
@@ -79,6 +81,10 @@ public class CheckSqlExecutor {
     public static final Marker INFO_MARKER = MarkerFactory.getMarker("INFO_SQL");
 
     private static final Marker DATA_MARKER = MarkerFactory.getMarker("DATA_SQL");
+    
+    private static /*final*/ SelectQuery selectQuery;// = new SelectQuery(); 
+    
+    //private static final PlsqlBlock plsqlBlock = new PlsqlBlock(); 
 
     private static final String FIND_FIRST_PROGRAM_ID_NEW = "select program_id from program where rownum < 2 and program_id <> 0";
 
@@ -94,8 +100,13 @@ public class CheckSqlExecutor {
         logger.info(INFO_MARKER, "SQL Checker is started");
 
         configAppSettings(config);
-
-        if (config.isEnabledSql()) {
+        try {
+            selectQuery = new SelectQuery(owner1JdbcTemplate); 
+        } catch (Exception e) {
+            logger.info(INFO_MARKER, "SQL Checker is failed with error\r\n{}", e);
+            return;
+        }
+        /*if (config.isEnabledSql()) {
             try {
                 testSelectQueries(config);
             } catch (Exception e) {
@@ -104,8 +115,14 @@ public class CheckSqlExecutor {
             }
         } else {
             logger.info(INFO_MARKER, "Testing of SELECT queries is disabled");
+        }*/
+        try {
+            testSelectQueries(config);
+        } catch (Exception e) {
+            logger.info(INFO_MARKER, "SQL Checker is failed with error\r\n{}", e);
+            return;
         }
-        if (config.isEnabledPlSql()) {
+        /*if (config.isEnabledPlSql()) {
             try {
                 testPlsqlBlocks(config);
             } catch (Exception e) {
@@ -114,6 +131,12 @@ public class CheckSqlExecutor {
             }
         } else {
             logger.info(INFO_MARKER, "Testing of PLSQL blocks is disabled");
+        }*/
+        try {
+            testPlsqlBlocks(config);
+        } catch (Exception e) {
+            logger.info(INFO_MARKER, "SQL Checker is failed with error\r\n{}", e);
+            return;
         }
         logSqlErrors();
         logger.info(INFO_MARKER, "SQL Checker is completed");
@@ -137,7 +160,7 @@ public class CheckSqlExecutor {
         Long pid = null;
         Exception e = null;
         try {
-            pid = owner1JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_OLD, Long.class);
+            pid = owner1JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_OLD, Long.class);         
         } catch (DataAccessException e1) {
             e = e1;
         }
@@ -196,11 +219,12 @@ public class CheckSqlExecutor {
             }
 
         });
-
-        for (SelectQuery select : SelectQuery.values()) {
+  
+        for (TableNode select : selectQuery.values()) {
             tableStats.put(select.getTableName().toLowerCase(), 0);
         }
-        for (PlsqlBlock plsql : PlsqlBlock.values()) {
+
+        for (TableNode plsql : /*plsqlBlock*/selectQuery.values()) {
             tableStats.put(plsql.getTableName().toLowerCase(), 0);
         }
 
@@ -220,16 +244,16 @@ public class CheckSqlExecutor {
         }
     }
 
-    private void testSelectQueries(Configuration config) {
-        final int tableNums = SelectQuery.values().length;
+    private void testSelectQueries(Configuration config) throws InvalidResultSetAccessException, Exception {
+        final int tableNums = selectQuery.values().size();
 
         boolean dropView = false;
-        for (SelectQuery sel : SelectQuery.values()) {
-            if (config.isSkippedSqlTable(sel.getTableName())) {
+        for (TableNode sel : selectQuery.values()) {
+            /*if (config.isSkippedSqlTable(sel.getTableName())) {
                 logger.info(INFO_MARKER, "Phase 1/2 Table {}/{}: Table {} is skipped", sel.getOrdNum(), tableNums,
                         sel.getTableName());
                 continue;
-            }
+            }*/
 
             TableValue<SqlRowSet> entitySqls = getSqlRowSetData(sel);
             if (entitySqls.hasError()) {
@@ -255,7 +279,7 @@ public class CheckSqlExecutor {
                     entityId.getSqlError().setRow(entitySqls.getValue().getRow());
                     logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row {}/{}: Error\r\n{}", sel.getOrdNum(), tableNums,
                             entitySqls.getValue().getRow(),
-                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
+                            entitySqls.getValue().getString(selectQuery.TOTAL_ROWS_COL_NAME),
                             entityId.getSqlError().getErrMsg());
                     continue;
                 }
@@ -288,9 +312,9 @@ public class CheckSqlExecutor {
 
                 // Remove unavailable statements of SELECT
                 String selectSql = new String(entitySql.getValue());
-                if (SelectQuery.IMP_DATA_TYPE_PARAM.getTableName().equalsIgnoreCase(sel.getTableName())) {
+                if (selectQuery.valueByName("IMP_DATA_TYPE_PARAM").getTableName().equalsIgnoreCase(sel.getTableName())) {
                     selectSql = replaceStaticImpDataTypeParam(selectSql);
-                } else if (SelectQuery.IMP_ENTITY.getTableName().equalsIgnoreCase(sel.getTableName())
+                } else if (selectQuery.valueByName("IMP_ENTITY").getTableName().equalsIgnoreCase(sel.getTableName())
                         && isPlsqlBlock(selectSql)) {
                     logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row {}/{}: Skip because it is PLSQL\r\n{}",
                             sel.getOrdNum(), tableNums,
@@ -457,12 +481,12 @@ public class CheckSqlExecutor {
 
     private void testPlsqlBlocks(Configuration config) {
         boolean dropProc = false;
-        int tableNums = PlsqlBlock.values().length;
-        for (PlsqlBlock plsql : PlsqlBlock.values()) {
-            if (config.isSkippedPlsqlTable(plsql.getTableName())) {
+        int tableNums = /*plsqlBlock*/selectQuery.values().size();
+        for (TableNode plsql : /*plsqlBlock*/selectQuery.values()) {
+            /*if (config.isSkippedPlsqlTable(plsql.getTableName())) {
                 logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} is skipped", plsql.getOrdNum(), tableNums);
                 continue;
-            }
+            }*/
 
             TableValue<SqlRowSet> entitySqls = getSqlRowSetData(plsql);
             if (entitySqls.hasError()) {

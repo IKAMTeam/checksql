@@ -1,97 +1,90 @@
-package com.onevizion.checksql.vo;
-
-public enum PlsqlBlock implements CheckSqlQuery {
-
-    IMP_DATA_MAP(1, "imp_data_map", "imp_data_map", "sql_text", "imp_data_map_id", "length(sql_text) > 0"),
-    IMP_DATA_TYPE(2, "imp_data_type", "imp_data_type", "sql_text", "imp_data_type_id", null),
-    IMP_DATA_ENTITY(3, "imp_entity", "imp_entity", "sql_text", "imp_entity_id", null),
-    IMP_SPEC(4, "imp_spec", "imp_spec", "external_proc", "imp_spec_id", null),
-    RULE(5, "rule", "rule", "sql_text", "rule_id", "is_enabled = 1"),
-    RULE_CLASS_PARAM_VAL(
-            6,
-            "rule_class_param_value",
-            "rule_class_param_value v join rule r on (r.rule_id = v.rule_id)",
-            "v.value_clob",
-            "v.rule_class_param_value_id",
-            "r.is_enabled = 1"),
-    WF_STEP(
-            7,
-            "wf_step",
-            "wf_step s join wf_workflow w on (w.wf_workflow_id = s.wf_workflow_id)",
-            "s.plsql_block",
-            "s.wf_step_id",
-            "w.wf_state_id not in (4,5)"),
-    WF_TEMPLATE_STEP(8, "wf_template_step", "wf_template_step", "plsql_block", "wf_template_step_id", null);
-
-    public static final String TOTAL_ROWS_COL_NAME = "totalrows";
-
-    private final String fromClause;
-    private final String sqlColName;
-    private final String primKeyColName;
-    private final String whereClause;
-    private final String tableName;
-    private final int ordNum;
-
-    private PlsqlBlock(int ordNum, String tableName, String fromClause, String sqlColName,
-            String primKeyColName, String whereClause) {
-        this.ordNum = ordNum;
-        this.fromClause = fromClause;
-        this.sqlColName = sqlColName;
-        this.primKeyColName = primKeyColName;
-        this.whereClause = whereClause;
-        this.tableName = tableName;
-    }
-
-    @Override
-    public String getSqlColName() {
-        return sqlColName;
-    }
-
-    public int getOrdNum() {
-        return ordNum;
-    }
-
-    public String getFromClause() {
-        return fromClause;
-    }
-
-    @Override
-    public String getPrimKeyColName() {
-        return primKeyColName;
-    }
-
-    public String getWhereClause() {
-        return whereClause;
-    }
-
-    @Override
-    public String getTableName() {
-        return tableName;
-    }
-
-    @Override
-    public String getSql() {
-        StringBuilder sql = new StringBuilder("select ");
-        sql.append(getPrimKeyColName());
-        sql.append(", ");
-        sql.append(getSqlColName());
-        sql.append(", count(*) over () as ");
-        sql.append(TOTAL_ROWS_COL_NAME);
-        sql.append(" from ");
-        sql.append(getFromClause());
-        sql.append(" where ");
-        sql.append(getSqlColName());
-        sql.append(" is not null");
-        if (getWhereClause() != null) {
-            sql.append(" and ");
-            sql.append(getWhereClause());
-        }
-        return sql.toString();
-    }
-
-    @Override
-    public String getQueryType() {
-        return "PLSQL";
-    }
-
-}
+//package com.onevizion.checksql.vo;
+//
+//import java.io.FileReader;
+//import java.io.IOException;
+//import java.util.ArrayList;
+//import java.util.List;
+//import java.util.logging.Level;
+//import java.util.logging.Logger;
+//import org.json.simple.JSONArray;
+//import org.json.simple.JSONObject;
+//import org.json.simple.parser.JSONParser;
+//import org.json.simple.parser.ParseException;
+//
+//public class PlsqlBlock{
+//
+//	public static final String TOTAL_ROWS_COL_NAME = "totalrows";
+//	private static final String FILENAME = "structure_test.json";
+//
+//	private List<TableNode> values = new ArrayList();
+//	
+//	public PlsqlBlock() {
+//        
+//        JSONParser parser = new JSONParser();
+//        try {
+//            JSONObject object = (JSONObject) parser.parse(
+//                    new FileReader(FILENAME));
+//            JSONArray messages = (JSONArray) object.get("plsql");
+//            //System.out.println("Messages: " + messages);
+//            for (int i = 0; i < messages.size(); i = i + 1) {
+//                JSONObject tempobject = (JSONObject) messages.get(i);
+//                int ordNum = i + 1;
+//                String tempstr = tempobject.keySet().toString().substring(1, tempobject.keySet().toString().length()-1);
+//                String tableName = tempstr.substring(0, tempstr.indexOf('.'));
+//                String primKeyColName = tempstr.substring(tempstr.indexOf('.')+1);
+//                tempstr = tempobject.values().toString();
+//                String whereClause = tempstr.substring(tempstr.indexOf("\"whereClause\":") + 14, tempstr.indexOf("\"fromClause\":")-1);
+//                if (!whereClause.equals("null")){
+//                    whereClause = whereClause.substring(1, whereClause.length()-1);
+//                }
+//                else{
+//                    whereClause = null;
+//                }
+//                String fromClause = tempstr.substring(tempstr.indexOf("\"fromClause\":") + 13, tempstr.indexOf("\"sqlColName\":")-1);
+//                if (!fromClause.equals("null")){
+//                    fromClause = fromClause.substring(1, fromClause.length()-1);
+//                }
+//                else{
+//                    fromClause = null;
+//                }
+//                String sqlColName = tempstr.substring(tempstr.indexOf("\"sqlColName\":") + 13, tempstr.length()-2);
+//                if (!sqlColName.equals("null")){
+//                    sqlColName = sqlColName.substring(1, sqlColName.length()-1);
+//                }
+//                else{
+//                    sqlColName = null;
+//                }
+//                TableNode tempr = new TableNode(ordNum, tableName.toLowerCase(), fromClause, sqlColName, primKeyColName.toLowerCase(), whereClause, "PLSQL", this.TOTAL_ROWS_COL_NAME);
+//                this.values.add(tempr);
+//                /*System.out.println("Element: " + this.values.size() + " " + 
+//                        this.values.get(this.values.size()-1).getOrdNum() + " " + this.values.get(this.values.size()-1).getTableName() + " " + 
+//                        this.values.get(this.values.size()-1).getPrimKeyColName() + " " + this.values.get(this.values.size()-1).getWhereClause() + " " + 
+//                        this.values.get(this.values.size()-1).getFromClause() + " " + this.values.get(this.values.size()-1).getSqlColName());*/
+//            }            
+//        } catch (IOException | ParseException ex) {
+//            Logger.getLogger(PlsqlBlock.class.getName())
+//                    .log(Level.SEVERE, null, ex);
+//        }
+//
+//    }
+//    
+//    public List<TableNode> values(){
+//        return this.values;
+//    }
+//    
+//    public TableNode valueByName(String name) throws Exception{
+//        int id = -1;
+//        for (TableNode ff : this.values()){
+//            if (ff.getTableName().equals(name.toLowerCase())){
+//                id = ff.getOrdNum() - 1;
+//            }
+//        }
+//        if (id == -1){
+//            throw new Exception("PlsqlBlock.valueByName(String name) TableNode with this name not found");
+//        }
+//        else {
+//            return this.values.get(id);
+//        } 
+//    }
+//    
+//}

@@ -14,9 +14,20 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 import com.onevizion.checksql.exception.AppStartupException;
 import com.onevizion.checksql.vo.Configuration;
+import com.onevizion.checksql.vo.TableNode;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Level;
 
 import oracle.jdbc.driver.OracleConnection;
 import oracle.ucp.jdbc.PoolDataSource;
+
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 public class CheckSqlApp {
 
@@ -25,6 +36,8 @@ public class CheckSqlApp {
     private static final String DB_CNN_PROPS_ERROR_MESSAGE = "DB connection properties should be specified in following format: <username>/<password>@<host>:<port>:<SID>";
 
     private static final String JDBC_THIN_URL_PREFIX = "jdbc:oracle:thin:@";
+    
+    private List<TableNode> values = new ArrayList();
 
     /**
      * Main use cases:
@@ -38,16 +51,22 @@ public class CheckSqlApp {
      * @param args
      *            - (optional) Path to config file
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         CheckSqlApp app = new CheckSqlApp();
 
-        Document doc;
+        //Document doc;
+        String constring;
         if (args.length > 0) {
-            doc = XmlConfUtils.getDoc(args[0]);
+            constring = args[0];
+            if (args.length > 1) {
+                constring = constring + " " + args[1];
+            }
         } else {
-            doc = XmlConfUtils.getDoc("check-sql.xml");
+            throw new Exception("Please enter connection string, example(remote_owner(can't be null) local_owner(can be null)): vqs_p01_epm/vepm@192.168.56.101:1521:xe loc_vqs_p01_epm/vepm@192.168.56.101:1521:xe");
+            //throw new Exception(args[0] + "_" + args[1]);
         }
-        Configuration configuration = ConfigurationUtils.loadConfiguration(doc);
+
+        Configuration configuration = ConfigurationUtils.loadConfiguration(constring);
 
         ApplicationContext ctx = app.getAppContext("com/onevizion/checksql/beans.xml", configuration);
 
@@ -56,7 +75,8 @@ public class CheckSqlApp {
         configDataSource((PoolDataSource) ctx.getBean("owner1DataSource"), owner1DbUrlParts, "check-sql_owner1", false,
                 true);
 
-        String[] test1DbUrlParts = parseDbCnnStr(configuration.getRemoteUser());
+        //String[] test1DbUrlParts = parseDbCnnStr(configuration.getRemoteUser());
+        String[] test1DbUrlParts = parseDbCnnStr(configuration.getRemoteOwner());
         configuration.setTest1DbSchema(test1DbUrlParts[0]);
         configDataSource((PoolDataSource) ctx.getBean("test1DataSource"), test1DbUrlParts, "check-sql_test1", false,
                 false);
@@ -67,7 +87,8 @@ public class CheckSqlApp {
             configDataSource((PoolDataSource) ctx.getBean("owner2DataSource"), owner2DbUrlParts, "check-sql_owner2",
                     true, true);
 
-            String[] test2DbUrlParts = parseDbCnnStr(configuration.getLocalUser());
+            //String[] test2DbUrlParts = parseDbCnnStr(configuration.getLocalUser());
+            String[] test2DbUrlParts = parseDbCnnStr(configuration.getLocalOwner());
             configuration.setTest2DbSchema(test2DbUrlParts[0]);
             configDataSource((PoolDataSource) ctx.getBean("test2DataSource"), test2DbUrlParts, "check-sql_test2", true,
                     false);
@@ -126,22 +147,25 @@ public class CheckSqlApp {
     }
 
     private void checkArgsAndThrow(Configuration configuration) throws IllegalArgumentException {
-        if (StringUtils.isBlank(configuration.getRemoteOwner()) || StringUtils.isBlank(configuration.getRemoteUser())) {
+        /*if (StringUtils.isBlank(configuration.getRemoteOwner()) || StringUtils.isBlank(configuration.getRemoteUser())) {
             throw new IllegalArgumentException("both remote_owner and remote_user should set");
+        }*/
+        if (StringUtils.isBlank(configuration.getRemoteOwner())) {
+            throw new IllegalArgumentException("remote_owner should be set");
         }
 
-        if ((StringUtils.isNotBlank(configuration.getLocalOwner()) && StringUtils.isBlank(configuration.getLocalUser()))
+        /*if ((StringUtils.isNotBlank(configuration.getLocalOwner()) && StringUtils.isBlank(configuration.getLocalUser()))
                 || (StringUtils.isBlank(configuration.getLocalOwner())
                         && StringUtils.isNotBlank(configuration.getLocalUser()))) {
             throw new IllegalArgumentException("both local_owner and local_user should set or nothing");
-        }
+        }*/
 
         parseDbCnnStr(configuration.getRemoteOwner());
-        parseDbCnnStr(configuration.getRemoteUser());
+        //parseDbCnnStr(configuration.getRemoteUser());
 
         if (configuration.isUseSecondTest()) {
             parseDbCnnStr(configuration.getLocalOwner());
-            parseDbCnnStr(configuration.getLocalUser());
+            //parseDbCnnStr(configuration.getLocalUser());
         }
     }
 

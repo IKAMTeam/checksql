@@ -1,143 +1,175 @@
 package com.onevizion.checksql.vo;
 
-public enum SelectQuery implements CheckSqlQuery {
+import com.onevizion.checksql.exception.UnexpectedException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.annotation.Resource;
+import oracle.ucp.jdbc.PoolDataSourceImpl;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import com.onevizion.checksql.vo.AppSettings;
 
-    FIELD_DEF_SQL(1, "config_field", "config_field", "default_value_sql", "config_field_id", null),
-    FIELD_SQL_QUERY(
-            2,
-            "config_field",
-            "config_field",
-            "sql_query",
-            "config_field_id",
-            "config_field_name <> 'XITOR_CLASS_ID'"),
-    EXCEL_ORCH_DEF_SQL(
-            3,
-            "excel_orch_mapping",
-            "excel_orch_mapping",
-            "default_value_sql",
-            "excel_orch_mapping_id",
-            null),
-    EXCEL_ORCH_SQL_QUERY(
-            4,
-            "excel_orch_mapping",
-            "excel_orch_mapping",
-            "sql_query",
-            "excel_orch_mapping_id",
-            null),
-    PAGE_FIELD78(
-            5,
-            "grid_page_field",
-            "grid_page_field",
-            "cell_renderer_param1",
-            "grid_page_field_id",
-            "cell_renderer_id = 78"),
-    IMP_ENTITY_REQ_FIELD(
-            6,
-            "imp_entity_req_field",
-            "imp_entity_req_field",
-            "sql_text",
-            "imp_entity_req_field_id",
-            "length(sql_text) > 0"),
-    NOTIF_TRACKOR(7, "notif", "notif", "trackor_sql", "notif_id", null),
-    NOTIF_USER(8, "notif", "notif", "user_sql", "notif_id", null),
-    RPT_LOOKUP(9, "report_lookup", "report_lookup", "lookup_sql", "report_lookup_id", null),
-    RPT_SQL(10, "report_sql", "report_sql", "sql_text", "report_sql_id", null),
-    RULE_CLASS_PARAM(
-            11,
-            "rule_class_param",
-            "rule_class_param",
-            "sql_text",
-            "rule_class_param_id",
-            null),
-    RULE_TYPE(12, "rule_type", "rule_type", "template_sql", "rule_type_id", null),
-    TM_SETUP(13, "tm_setup", "tm_setup", "search_sql", "tm_setup_id", "length(search_sql) > 0"),
-    XITOR_REQ_FIELD(14, "xitor_req_field", "xitor_req_field", "default_value_sql", "xitor_req_field_id", null),
-    IMP_DATA_TYPE_PARAM(
-            15,
-            "imp_data_type_param",
-            "imp_data_type_param",
-            "sql_text",
-            "imp_data_type_param_id",
-            null),
-    IMP_DATA_MAP(16, "imp_data_map", "imp_data_map", "sql_text", "imp_data_map_id", "length(sql_text) > 0"),
-    IMP_ENTITY(17, "imp_entity", "imp_entity", "sql_text", "imp_entity_id", "dbms_lob.getlength(sql_text) > 0"),
-    RULE_CLASS_PARAM_VAL(
-            18,
-            "rule_class_param_value",
-            "rule_class_param_value v join rule r on (r.rule_id = v.rule_id)",
-            "v.value_clob",
-            "v.rule_class_param_value_id",
-            "r.is_enabled = 1");
+public class SelectQuery{
 
-    public static final String TOTAL_ROWS_COL_NAME = "totalrows";
+	public static final String TOTAL_ROWS_COL_NAME = "totalrows";
+	private static final String FILENAME = "checksql.json";
+//        @Resource(name = "owner1JdbcTemplate")
+//        private JdbcTemplate owner1JdbcTemplate;
+//        @Resource(name = "test1JdbcTemplate")
+//        private JdbcTemplate test1JdbcTemplate;
+//        @Resource(name = "test2JdbcTemplate")
+//        private JdbcTemplate test2JdbcTemplate;
+//        @Resource(name = "owner2JdbcTemplate")
+//        private JdbcTemplate owner2JdbcTemplate;
+//        private AppSettings appSettings;
+//        private static final String FIND_FIRST_PROGRAM_ID_NEW = "select program_id from program where rownum < 2 and program_id <> 0";
+//        private static final String FIND_FIRST_PROGRAM_ID_OLD = "select program_id from v_program where rownum < 2";
+    
+    private List<TableNode> values = new ArrayList();
 
-    private final String fromClause;
-    private final String sqlColName;
-    private final String primKeyColName;
-    private final String whereClause;
-    private final String tableName;
-    private final int ordNum;
-
-    private SelectQuery(int ordNum, String tableName, String fromClause, String sqlColName,
-            String primKeyColName,
-            String whereClause) {
-        this.ordNum = ordNum;
-        this.fromClause = fromClause;
-        this.sqlColName = sqlColName;
-        this.primKeyColName = primKeyColName;
-        this.whereClause = whereClause;
-        this.tableName = tableName;
-    }
-
-    public int getOrdNum() {
-        return ordNum;
-    }
-
-    public String getFromClause() {
-        return fromClause;
-    }
-
-    public String getSqlColName() {
-        return sqlColName;
-    }
-
-    @Override
-    public String getPrimKeyColName() {
-        return primKeyColName;
-    }
-
-    public String getWhereClause() {
-        return whereClause;
-    }
-
-    @Override
-    public String getTableName() {
-        return tableName;
-    }
-
-    @Override
-    public String getSql() {
-        StringBuilder sql = new StringBuilder("select ");
-        sql.append(getPrimKeyColName());
-        sql.append(", ");
-        sql.append(getSqlColName());
-        sql.append(", count(*) over () as ");
-        sql.append(TOTAL_ROWS_COL_NAME);
-        sql.append(" from ");
-        sql.append(getFromClause());
-        sql.append(" where ");
-        sql.append(getSqlColName());
-        sql.append(" is not null");
-        if (getWhereClause() != null) {
-            sql.append(" and ");
-            sql.append(getWhereClause());
+    public SelectQuery(JdbcTemplate owner1JdbcTemplate) {
+        
+        JSONParser parser = new JSONParser();
+        try {
+            
+            JSONArray message = (JSONArray) parser.parse(
+                new FileReader(FILENAME));
+            
+            String temp = message.toString();
+            String sqlquery, table, column, whereClause, fromClause;
+            int n = message.size();
+            int k;
+            for (int i = 0; i < n; i = i + 1){
+                temp = message.get(i).toString();
+                Object object = message.get(i);
+                temp = object.toString();
+                k = temp.indexOf("\"");
+                if (k != -1){
+                    JSONObject jsonobject = (JSONObject) message.get(i);
+                    sqlquery = jsonobject.values().toString().substring(1, jsonobject.values().toString().length() - 1);
+                    whereClause = sqlquery.substring(sqlquery.toLowerCase().indexOf("where") + 6);
+                    fromClause = sqlquery.substring(sqlquery.toLowerCase().indexOf("from") + 4, sqlquery.toLowerCase().indexOf("where"));
+                    temp = temp.substring(2, temp.indexOf(":") - 1);
+                    table = temp.substring(0, temp.indexOf("."));
+                    column = temp.substring(temp.indexOf(".") + 1);
+                } else{
+                    table = temp.substring(0, temp.indexOf("."));
+                    column = temp.substring(temp.indexOf(".") + 1);
+                    sqlquery = "select " + column + " from " + table;
+                    whereClause = null;
+                    fromClause = table;
+                }
+                
+                String primKeyColName = "primKeyColName";
+                Exception e = null;
+                try {
+                    primKeyColName = owner1JdbcTemplate.queryForObject("SELECT COLUMN_NAME FROM ALL_CONS_COLUMNS WHERE CONSTRAINT_NAME IN ( SELECT CONSTRAINT_NAME FROM ALL_CONSTRAINTS WHERE CONSTRAINT_TYPE = 'P' and TABLE_NAME = '" + table + "' ) AND ROWNUM = 1", String.class);    
+                } catch (DataAccessException e1) {
+                    e = e1;
+                }
+            
+                TableNode tempr = new TableNode(i + 1, table.toLowerCase(), fromClause, column, primKeyColName.toLowerCase(), whereClause, "SQL", this.TOTAL_ROWS_COL_NAME);
+                this.values.add(tempr);
+            }            
+        } catch (IOException | ParseException ex) {
+            Logger.getLogger(SelectQuery.class.getName())
+                    .log(Level.SEVERE, null, ex);
         }
-        return sql.toString();
+
+    }
+    
+//    private void configAppSettings(Configuration config) {
+//        appSettings.setTest1Pid(getRandomTest1Pid());
+//
+//        PoolDataSourceImpl test1DataSource = (PoolDataSourceImpl) test1JdbcTemplate.getDataSource();
+//        appSettings.setTest1Schema(test1DataSource.getUser());
+//
+//        if (config.isUseSecondTest()) {
+//            appSettings.setTest2Pid(getRandomTest2Pid());
+//
+//            PoolDataSourceImpl test2DataSource = (PoolDataSourceImpl) test2JdbcTemplate.getDataSource();
+//            appSettings.setTest2Schema(test2DataSource.getUser());
+//        }
+//    }
+//    private Long getRandomTest1Pid() {
+//        Long pid = null;
+//        Exception e = null;
+//        try {
+//            pid = owner1JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_OLD, Long.class);         
+//        } catch (DataAccessException e1) {
+//            e = e1;
+//        }
+//
+//        if (pid == null) {
+//            try {
+//                pid = owner1JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_NEW, Long.class);
+//            } catch (DataAccessException e1) {
+//                e = e1;
+//            }
+//        }
+//
+//        if (pid == null) {
+//            throw new UnexpectedException("[Test1] Can not get a PROGRAM_ID", e);
+//        }
+//        return pid;
+//    }
+//
+//    private Long getRandomTest2Pid() {
+//        Long pid = null;
+//        Exception e = null;
+//        try {
+//            pid = owner2JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_OLD, Long.class);
+//        } catch (DataAccessException e1) {
+//            e = e1;
+//        }
+//
+//        if (pid == null) {
+//            try {
+//                pid = owner2JdbcTemplate.queryForObject(FIND_FIRST_PROGRAM_ID_NEW, Long.class);
+//            } catch (DataAccessException e1) {
+//                e = e1;
+//            }
+//        }
+//
+//        if (pid == null) {
+//            throw new UnexpectedException("[Test2] Can not get a PROGRAM_ID", e);
+//        }
+//        return pid;
+//    }
+    
+    public List<TableNode> values(){
+        return this.values;
     }
 
-    @Override
-    public String getQueryType() {
-        return "SELECT";
+    public TableNode valueByName(String name) throws Exception{
+        int id = -1;
+        //String where = "where", from = "from", pk = "pk", sqlcol = "sqlcol", sql = "sql";
+        for (TableNode ff : this.values()){
+            if (ff.getTableName().equals(name.toLowerCase())){
+                id = ff.getOrdNum() - 1;
+                //where = ff.getWhereClause();
+                //from = ff.getFromClause();
+                //pk = ff.getPrimKeyColName();
+                //sqlcol = ff.getSqlColName();
+                //sql = ff.getSql();
+            }
+        }
+        //id = -1;
+        if (id == -1){
+            throw new Exception("SelectQuery.valueByName(String " + name + ") TableNode with this name not found");
+            //throw new Exception("name" + name + " where" + where + " from" + from + " pk" + pk + " sqlcol" + sqlcol + " sql" + sql + ") TableNode with this name not found");
+        }
+        else {
+            return this.values.get(id);
+        } 
     }
-
+    
 }

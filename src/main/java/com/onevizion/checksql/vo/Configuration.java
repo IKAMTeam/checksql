@@ -6,13 +6,13 @@ import java.util.List;
 public class Configuration {
 
     private String remoteOwner;
-    private String remoteUser;
+    //private String remoteUser;
     private String localOwner;
-    private String localUser;
-    private boolean enabledSql = true;
-    private boolean enabledPlSql = true;
-    private List<String> skipTablesSql = new ArrayList<String>();
-    private List<String> skipTablesPlSql = new ArrayList<String>();
+    //private String localUser;
+    //private boolean enabledSql = true;
+    //private boolean enabledPlSql = true;
+    //private List<String> skipTablesSql = new ArrayList<String>();
+    //private List<String> skipTablesPlSql = new ArrayList<String>();
     private String owner1DbSchema;
     private String owner2DbSchema;
     private String test1DbSchema;
@@ -28,13 +28,13 @@ public class Configuration {
         this.remoteOwner = remoteOwner;
     }
 
-    public String getRemoteUser() {
+    /*public String getRemoteUser() {
         return remoteUser;
-    }
+    }*/
 
-    public void setRemoteUser(String remoteUser) {
+    /*public void setRemoteUser(String remoteUser) {
         this.remoteUser = remoteUser;
-    }
+    }*/
 
     public String getLocalOwner() {
         return localOwner;
@@ -44,45 +44,45 @@ public class Configuration {
         this.localOwner = localOwner;
     }
 
-    public String getLocalUser() {
+    /*public String getLocalUser() {
         return localUser;
-    }
+    }*/
 
-    public void setLocalUser(String localUser) {
+    /*public void setLocalUser(String localUser) {
         this.localUser = localUser;
-    }
+    }*/
 
-    public boolean isEnabledSql() {
+    /*public boolean isEnabledSql() {
         return enabledSql;
-    }
+    }*/
 
-    public void setEnabledSql(boolean enabledSql) {
+    /*public void setEnabledSql(boolean enabledSql) {
         this.enabledSql = enabledSql;
-    }
+    }*/
 
-    public boolean isEnabledPlSql() {
+    /*public boolean isEnabledPlSql() {
         return enabledPlSql;
-    }
+    }*/
 
-    public void setEnabledPlSql(boolean enabledPlSql) {
+    /*public void setEnabledPlSql(boolean enabledPlSql) {
         this.enabledPlSql = enabledPlSql;
-    }
+    }*/
 
-    public List<String> getSkipTablesSql() {
+    /*public List<String> getSkipTablesSql() {
         return skipTablesSql;
-    }
+    }*/
 
-    public void setSkipTablesSql(List<String> skipTablesSql) {
+    /*public void setSkipTablesSql(List<String> skipTablesSql) {
         this.skipTablesSql = skipTablesSql;
-    }
+    }*/
 
-    public List<String> getSkipTablesPlSql() {
+    /*public List<String> getSkipTablesPlSql() {
         return skipTablesPlSql;
-    }
+    }*/
 
-    public void setSkipTablesPlSql(List<String> skipTablesPlSql) {
+    /*public void setSkipTablesPlSql(List<String> skipTablesPlSql) {
         this.skipTablesPlSql = skipTablesPlSql;
-    }
+    }*/
 
     public boolean isUseSecondTest() {
         return useSecondTest;
@@ -92,13 +92,13 @@ public class Configuration {
         this.useSecondTest = useSecondTest;
     }
 
-    public boolean isSkippedSqlTable(String tableName) {
+    /*public boolean isSkippedSqlTable(String tableName) {
         return getSkipTablesSql().contains(tableName);
-    }
+    }*/
 
-    public boolean isSkippedPlsqlTable(String tableName) {
+    /*public boolean isSkippedPlsqlTable(String tableName) {
         return getSkipTablesPlSql().contains(tableName);
-    }
+    }*/
 
     public String getOwner1DbSchema() {
         return owner1DbSchema;

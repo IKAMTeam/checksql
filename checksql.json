@@ -1,0 +1,23 @@
+[
+  {"IMP_DATA_MAP.sql_text": "select sql_text from imp_data_map where length(sql_text) > 0"},
+  "IMP_DATA_TYPE.sql_text",
+  "IMP_DATA_ENTITY.sql_text",
+  "IMP_SPEC.external_proc",
+  {"RULE.sql_text": "select sql_text from rule where is_enabled = 1"},
+  {"RULE_CLASS_PARAM_VALUE.v.value_clob": "select v.value_clob from rule_class_param_value v join rule r on (r.rule_id = v.rule_id) where r.is_enabled = 1"},
+  {"WF_STEP.s.plsql_block": "select s.plsql_block from wf_step s join wf_workflow w on (w.wf_workflow_id = s.wf_workflow_id) where w.wf_state_id not in (4,5)"},
+  "WF_TEMPLATE_STEP.plsql_block",
+  "CONFIG_FIELD.default_value_sql",
+  {"CONFIG_FIELD.sql_query": "select sql_query from config_field where config_field_name <> 'XITOR_CLASS_ID'"},
+  {"GRID_PAGE_FIELD.cell_renderer_param1": "select cell_renderer_param1 from grid_page_field where cell_renderer_id = 78"},
+  {"IMP_ENTITY_REQ_FIELD.sql_text": "select sql_text from imp_entity_req_field where length(sql_text) > 0"},
+  "NOTIF.trackor_sql",
+  "NOTIF.user_sql",
+  "REPORT_LOOKUP.lookup_sql",
+  "REPORT_SQL.sql_text",
+  "RULE_CLASS_PARAM.sql_text",
+  "RULE_TYPE.template_sql",
+  {"TM_SETUP.search_sql": "select search_sql from tm_setup where length(search_sql) > 0"},
+  "IMP_DATA_TYPE_PARAM.sql_text",
+  {"IMP_ENTITY.sql_text": "select sql_text from imp_entity where dbms_lob.getlength(sql_text) > 0"}
+]

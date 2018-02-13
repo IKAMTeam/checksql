@@ -3,8 +3,11 @@ Utility to validate SQL queries against DB schema.
 It extracts SQL from known list of DB tables and validates it by creating View for "select" statements and procedure for PL/SQL and then evaluating creation errors.
 SQL statements may be tested in DB schema which is differs from the one where it extracted from, this allows to test some user configurable SQL before upgrade to ensure it is compatible with new DB structure.
 
-To start create check-sql.xml file in working directory and set DB connection string for source DB schema where SQL statements will be extracted in <remote_owner> parameter,
-and DB connection string for DB where SQL statements will be tested in <remote_user> parameter. Values may be the same.
+To start create checksql.json file in working directory and set DB connection string for source DB schema where SQL statements will be extracted in <remote_owner> parameter,
+and DB connection string for DB where SQL statements will be tested in <remote_user> parameter. Values may be the same. See examples bellow:
+
+java -jar check-sql.jar vqs_p01_epm/vepm@192.168.56.101:1521:xe vqs_p01_epm/vepm@192.168.56.101:1521:xe
+java -jar check-sql.jar vqs_p01_epm/vepm@192.168.56.101:1521:xe
 
 After start app will print progress, summary and additional information to the standard output. Summary will contain info on each table tested and may look like this:
 ```
