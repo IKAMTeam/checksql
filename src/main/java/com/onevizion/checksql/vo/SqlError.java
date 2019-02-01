@@ -198,4 +198,11 @@ public class SqlError {
         this.errMsg = errMsg;
     }
 
+    public void union(SqlError sqlError) {
+        setErrType(getErrType() + ", " + sqlError.getErrType());
+        setQuery("[" + getQuery() + "],\r\n [" + sqlError.getQuery() + "]");
+        setPhase(1);
+        setErrMsg("[" + getErrMsg() + "],\r\n [" + sqlError.getErrMsg() + "]");
+    }
+
 }

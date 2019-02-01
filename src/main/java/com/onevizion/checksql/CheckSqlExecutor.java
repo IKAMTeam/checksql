@@ -1,38 +1,23 @@
 package com.onevizion.checksql;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.SortedMap;
-import java.util.TreeMap;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import javax.annotation.Resource;
-
+import com.onevizion.checksql.exception.SqlParsingException;
+import com.onevizion.checksql.exception.UnexpectedException;
+import com.onevizion.checksql.vo.*;
+import oracle.ucp.jdbc.PoolDataSourceImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Marker;
 import org.slf4j.MarkerFactory;
 import org.springframework.dao.DataAccessException;
-import org.springframework.jdbc.InvalidResultSetAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
 import org.springframework.stereotype.Component;
 
-import com.onevizion.checksql.exception.SqlParsingException;
-import com.onevizion.checksql.exception.UnexpectedException;
-import com.onevizion.checksql.vo.AppSettings;
-import com.onevizion.checksql.vo.CheckSqlQuery;
-import com.onevizion.checksql.vo.Configuration;
-//import com.onevizion.checksql.vo.PlsqlBlock;
-import com.onevizion.checksql.vo.SelectQuery;
-import com.onevizion.checksql.vo.SqlError;
-import com.onevizion.checksql.vo.TableNode;
-import com.onevizion.checksql.vo.TableValue;
-
-import oracle.ucp.jdbc.PoolDataSourceImpl;
+import javax.annotation.Resource;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Component
 public class CheckSqlExecutor {
@@ -81,10 +66,8 @@ public class CheckSqlExecutor {
     public static final Marker INFO_MARKER = MarkerFactory.getMarker("INFO_SQL");
 
     private static final Marker DATA_MARKER = MarkerFactory.getMarker("DATA_SQL");
-    
-    private static /*final*/ SelectQuery selectQuery;// = new SelectQuery(); 
-    
-    //private static final PlsqlBlock plsqlBlock = new PlsqlBlock(); 
+
+    private static SelectQuery selectQuery;
 
     private static final String FIND_FIRST_PROGRAM_ID_NEW = "select program_id from program where rownum < 2 and program_id <> 0";
 
@@ -92,57 +75,39 @@ public class CheckSqlExecutor {
 
     private List<SqlError> sqlErrors;
 
+    private boolean dropView;
+    private boolean dropProc;
+    private int tableNums;
+    private Configuration config;
+
     public CheckSqlExecutor() {
         sqlErrors = new ArrayList<SqlError>();
     }
 
     public void run(Configuration config) {
         logger.info(INFO_MARKER, "SQL Checker is started");
+        this.config = config;
 
-        configAppSettings(config);
+        configAppSettings();
         try {
             selectQuery = new SelectQuery(owner1JdbcTemplate); 
         } catch (Exception e) {
             logger.info(INFO_MARKER, "SQL Checker is failed with error\r\n{}", e);
             return;
         }
-        /*if (config.isEnabledSql()) {
-            try {
-                testSelectQueries(config);
-            } catch (Exception e) {
-                logger.info(INFO_MARKER, "SQL Checker is failed with error\r\n{}", e);
-                return;
-            }
-        } else {
-            logger.info(INFO_MARKER, "Testing of SELECT queries is disabled");
-        }*/
+
         try {
-            testSelectQueries(config);
+            testSelectAndPlsqlBlockForAllTables();
         } catch (Exception e) {
             logger.info(INFO_MARKER, "SQL Checker is failed with error\r\n{}", e);
             return;
         }
-        /*if (config.isEnabledPlSql()) {
-            try {
-                testPlsqlBlocks(config);
-            } catch (Exception e) {
-                logger.info(INFO_MARKER, "SQL Checker is failed with error\r\n{}", e);
-                return;
-            }
-        } else {
-            logger.info(INFO_MARKER, "Testing of PLSQL blocks is disabled");
-        }*/
-        try {
-            testPlsqlBlocks(config);
-        } catch (Exception e) {
-            logger.info(INFO_MARKER, "SQL Checker is failed with error\r\n{}", e);
-            return;
-        }
+
         logSqlErrors();
         logger.info(INFO_MARKER, "SQL Checker is completed");
     }
 
-    private void configAppSettings(Configuration config) {
+    private void configAppSettings() {
         appSettings.setTest1Pid(getRandomTest1Pid());
 
         PoolDataSourceImpl test1DataSource = (PoolDataSourceImpl) test1JdbcTemplate.getDataSource();
@@ -217,7 +182,6 @@ public class CheckSqlExecutor {
             public int compare(String arg0, String arg1) {
                 return arg0.compareToIgnoreCase(arg1);
             }
-
         });
   
         for (TableNode select : selectQuery.values()) {
@@ -241,180 +205,6 @@ public class CheckSqlExecutor {
         for (String tableName : tableStats.keySet()) {
             Integer cnt = tableStats.get(tableName);
             logger.info(INFO_MARKER, "table=" + tableName + ", err-count=" + cnt);
-        }
-    }
-
-    private void testSelectQueries(Configuration config) throws InvalidResultSetAccessException, Exception {
-        final int tableNums = selectQuery.values().size();
-
-        boolean dropView = false;
-        for (TableNode sel : selectQuery.values()) {
-            /*if (config.isSkippedSqlTable(sel.getTableName())) {
-                logger.info(INFO_MARKER, "Phase 1/2 Table {}/{}: Table {} is skipped", sel.getOrdNum(), tableNums,
-                        sel.getTableName());
-                continue;
-            }*/
-
-            TableValue<SqlRowSet> entitySqls = getSqlRowSetData(sel);
-            if (entitySqls.hasError()) {
-                logger.info(INFO_MARKER,
-                        "Phase 1/2 Table {}/{}: Error to get of list with SELECT queries for {}.{}\r\n{}",
-                        sel.getOrdNum(), tableNums, sel.getTableName(), sel.getSqlColName(),
-                        entitySqls.getSqlError().toString());
-                continue;
-            }
-
-            boolean isEmptyTable = true;
-            while (entitySqls.getValue().next()) {
-                isEmptyTable = false;
-
-                TableValue<String> entityId = TableValue.createString(entitySqls.getValue(), sel.getPrimKeyColName());
-                if (entityId == null || entityId.hasError()) {
-                    entityId.getSqlError().setTableName(sel.getTableName());
-                    entityId.getSqlError().setEntityIdColName(sel.getPrimKeyColName());
-                    entityId.getSqlError().setSqlColName(sel.getSqlColName());
-                    entityId.getSqlError().setEntityId(null);
-                    entityId.getSqlError().setPhase(1);
-                    entityId.getSqlError().setTable(sel.getOrdNum());
-                    entityId.getSqlError().setRow(entitySqls.getValue().getRow());
-                    logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row {}/{}: Error\r\n{}", sel.getOrdNum(), tableNums,
-                            entitySqls.getValue().getRow(),
-                            entitySqls.getValue().getString(selectQuery.TOTAL_ROWS_COL_NAME),
-                            entityId.getSqlError().getErrMsg());
-                    continue;
-                }
-
-                TableValue<String> entitySql = TableValue.createString(entitySqls.getValue(), sel.getSqlColName());
-                if (entitySql == null || entitySql.hasError()) {
-                    entitySql.getSqlError().setTableName(sel.getTableName());
-                    entitySql.getSqlError().setEntityIdColName(sel.getPrimKeyColName());
-                    entitySql.getSqlError().setSqlColName(sel.getSqlColName());
-                    entitySql.getSqlError().setEntityId(entityId.getValue());
-                    entitySql.getSqlError().setPhase(1);
-                    entitySql.getSqlError().setTable(sel.getOrdNum());
-                    entitySql.getSqlError().setRow(entitySqls.getValue().getRow());
-                    logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row {}/{}: Error\r\n{}", sel.getOrdNum(), tableNums,
-                            entitySqls.getValue().getRow(),
-                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                            entitySql.getSqlError().getErrMsg());
-                    logSqlError(entitySql.getSqlError());
-                    continue;
-                }
-
-                if (StringUtils.isBlank(entitySql.getValue())) {
-                    logger.info(INFO_MARKER,
-                            "Phase 1/2 Table {}/{} Row {}/{}: Skip because a value with SELECT is blank",
-                            sel.getOrdNum(), tableNums,
-                            entitySqls.getValue().getRow(),
-                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME));
-                    continue;
-                }
-
-                // Remove unavailable statements of SELECT
-                String selectSql = new String(entitySql.getValue());
-                if (selectQuery.valueByName("IMP_DATA_TYPE_PARAM").getTableName().equalsIgnoreCase(sel.getTableName())) {
-                    selectSql = replaceStaticImpDataTypeParam(selectSql);
-                } else if (selectQuery.valueByName("IMP_ENTITY").getTableName().equalsIgnoreCase(sel.getTableName())
-                        && isPlsqlBlock(selectSql)) {
-                    logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row {}/{}: Skip because it is PLSQL\r\n{}",
-                            sel.getOrdNum(), tableNums,
-                            entitySqls.getValue().getRow(),
-                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                            selectSql);
-                    continue;
-                }
-                if (selectSql.contains("?")) {
-                    selectSql = selectSql.replace("?", ":p");
-                }
-                try {
-                    selectSql = SqlParser.removeIntoClause(selectSql);
-                } catch (Exception e) {
-                    SqlError sqlErr = new SqlError("SELECT-INTO-CLAUSE");
-                    sqlErr.setErrMsg(e.getMessage());
-                    sqlErr.setTableName(sel.getTableName());
-                    sqlErr.setEntityIdColName(sel.getPrimKeyColName());
-                    sqlErr.setSqlColName(sel.getSqlColName());
-                    sqlErr.setEntityId(entityId.getValue());
-                    sqlErr.setPhase(1);
-                    sqlErr.setTable(sel.getOrdNum());
-                    sqlErr.setRow(entitySqls.getValue().getRow());
-                    logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row {}/{}: Error\r\n{}", sel.getOrdNum(), tableNums,
-                            entitySqls.getValue().getRow(),
-                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                            sqlErr.getErrMsg());
-                    logSqlError(sqlErr);
-                    continue;
-                }
-                selectSql = removeSemicolonAtTheEnd(selectSql);
-                selectSql = replaceDateBindVars(selectSql);
-                try {
-                    selectSql = replaceNonDateBindVars(selectSql);
-                } catch (SqlParsingException e) {
-                    SqlError err = new SqlError("REPLACE-BIND-VARS");
-                    err.setTableName(sel.getTableName());
-                    err.setEntityIdColName(sel.getPrimKeyColName());
-                    err.setSqlColName(sel.getSqlColName());
-                    err.setEntityId(entityId.getValue());
-                    err.setQuery(selectSql);
-                    err.setOriginalQuery(entitySql.getValue());
-                    err.setPhase(1);
-                    err.setTable(sel.getOrdNum());
-                    err.setRow(entitySqls.getValue().getRow());
-                    err.setErrMsg("Can not parse a SELECT to replace bind variables\r\n" + selectSql);
-                    logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row {}/{}: {}", sel.getOrdNum(), tableNums,
-                            entitySqls.getValue().getRow(),
-                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                            err.getErrMsg());
-                    logSqlError(err);
-                    continue;
-                }
-                selectSql = "select 1 as val from (\r\n" + selectSql + "\r\n)";
-
-                // Check if a query is Select statement and there are privs with help of creating Oracle View. If view
-                // is created then it is Select statement or there are unhandled errors
-                TableValue<Boolean> isSelectResult = isSelectStatement(config, selectSql);
-                dropView = true;
-                if (isSelectResult.hasError()) {
-                    isSelectResult.getSqlError().setTableName(sel.getTableName());
-                    isSelectResult.getSqlError().setEntityIdColName(sel.getPrimKeyColName());
-                    isSelectResult.getSqlError().setSqlColName(sel.getSqlColName());
-                    isSelectResult.getSqlError().setEntityId(entityId.getValue());
-                    isSelectResult.getSqlError().setQuery(selectSql);
-                    isSelectResult.getSqlError().setOriginalQuery(entitySql.getValue());
-                    isSelectResult.getSqlError().setPhase(1);
-                    isSelectResult.getSqlError().setTable(sel.getOrdNum());
-                    isSelectResult.getSqlError().setRow(entitySqls.getValue().getRow());
-                    logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row {}/{}: Error\r\n{}", sel.getOrdNum(), tableNums,
-                            entitySqls.getValue().getRow(),
-                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                            isSelectResult.getSqlError().getErrMsg());
-                    logSqlError(isSelectResult.getSqlError());
-                    continue;
-                }
-
-                logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row {}/{}: OK", sel.getOrdNum(), tableNums,
-                        entitySqls.getValue().getRow(),
-                        entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME));
-            }
-            if (isEmptyTable) {
-                logger.info(INFO_MARKER, "Phase 1/2 Table {}/{} Row 0/0: Table {} is empty", sel.getOrdNum(), tableNums,
-                        sel.getTableName());
-            }
-        }
-        if (dropView) {
-            if (config.isUseSecondTest()) {
-                try {
-                    test2JdbcTemplate.update(DROP_SELECT_VIEW);
-                } catch (DataAccessException e) {
-                    logger.info(INFO_MARKER, "Phase 1/2: Error when Test2 view is deleting\r\n{}", e.getMessage());
-                }
-            } else {
-                try {
-                    test1JdbcTemplate.update(DROP_SELECT_VIEW);
-                } catch (DataAccessException e) {
-                    logger.info(INFO_MARKER, "Phase 1/2: Error when Test2 view is deleting\r\n{}", e.getMessage());
-                }
-            }
         }
     }
 
@@ -477,150 +267,6 @@ public class CheckSqlExecutor {
     private void logSqlError(SqlError sqlError) {
         logger.info(DATA_MARKER, "{}", sqlError.toString());
         sqlErrors.add(sqlError);
-    }
-
-    private void testPlsqlBlocks(Configuration config) {
-        boolean dropProc = false;
-        int tableNums = /*plsqlBlock*/selectQuery.values().size();
-        for (TableNode plsql : /*plsqlBlock*/selectQuery.values()) {
-            /*if (config.isSkippedPlsqlTable(plsql.getTableName())) {
-                logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} is skipped", plsql.getOrdNum(), tableNums);
-                continue;
-            }*/
-
-            TableValue<SqlRowSet> entitySqls = getSqlRowSetData(plsql);
-            if (entitySqls.hasError()) {
-                logger.info(INFO_MARKER,
-                        "Phase 2/2 Table {}/{}: Error to get of list with PLSQL blocks for {}.{}\r\n{}",
-                        plsql.getOrdNum(), tableNums, plsql.getTableName(), plsql.getSqlColName(),
-                        entitySqls.getSqlError().toString());
-                continue;
-            }
-
-            boolean isEmptyTable = true;
-            while (entitySqls.getValue().next()) {
-                isEmptyTable = false;
-
-                TableValue<String> entityId = TableValue.createString(entitySqls.getValue(), plsql.getPrimKeyColName());
-                if (entityId == null || entityId.hasError()) {
-                    entityId.getSqlError().setTableName(plsql.getTableName());
-                    entityId.getSqlError().setEntityIdColName(plsql.getPrimKeyColName());
-                    entityId.getSqlError().setSqlColName(plsql.getSqlColName());
-                    entityId.getSqlError().setEntityId(null);
-                    entityId.getSqlError().setPhase(2);
-                    entityId.getSqlError().setTable(plsql.getOrdNum());
-                    entityId.getSqlError().setRow(entitySqls.getValue().getRow());
-                    logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} Row {}/{}: Error\r\n{}", plsql.getOrdNum(),
-                            tableNums,
-                            entitySqls.getValue().getRow(),
-                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                            entityId.getSqlError().getErrMsg());
-                    continue;
-                }
-
-                TableValue<String> entityBlock = TableValue.createString(entitySqls.getValue(), plsql.getSqlColName());
-                if (entityBlock == null || entityBlock.hasError()) {
-                    entityBlock.getSqlError().setTableName(plsql.getTableName());
-                    entityBlock.getSqlError().setEntityIdColName(plsql.getPrimKeyColName());
-                    entityBlock.getSqlError().setSqlColName(plsql.getSqlColName());
-                    entityBlock.getSqlError().setEntityId(entityId.getValue());
-                    entityBlock.getSqlError().setPhase(2);
-                    entityBlock.getSqlError().setTable(plsql.getOrdNum());
-                    entityBlock.getSqlError().setRow(entitySqls.getValue().getRow());
-                    logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} Row {}/{}: Error\r\n{}", plsql.getOrdNum(),
-                            tableNums,
-                            entitySqls.getValue().getRow(),
-                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                            entityBlock.getSqlError().getErrMsg());
-                    logSqlError(entityBlock.getSqlError());
-                    continue;
-                }
-
-                if (StringUtils.isBlank(entityBlock.getValue())) {
-                    logger.info(INFO_MARKER,
-                            "Phase 2/2 Table {}/{} Row {}/{}: Skip because a value with PLSQL is blank",
-                            plsql.getOrdNum(), tableNums,
-                            entitySqls.getValue().getRow(),
-                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME));
-                    continue;
-                }
-
-                if (isSelectStatement(entityBlock.getValue())) {
-                    // In some cases, the table column can contain PLSQL blocks and SELECT statements
-                    continue;
-                }
-
-                String plsqlBlock = wrapBeginEndIfNeed(entityBlock.getValue());
-                plsqlBlock = removeRowWithValueBindVarIfNeed(plsqlBlock);
-                try {
-                    plsqlBlock = replaceBindVars(plsqlBlock, plsql.getTableName(), plsql.getSqlColName(),
-                            entityId.getValue());
-                } catch (Exception e) {
-                    SqlError err = new SqlError("PLSQL-REPLACE-BIND");
-                    err.setTableName(plsql.getTableName());
-                    err.setEntityIdColName(plsql.getPrimKeyColName());
-                    err.setSqlColName(plsql.getSqlColName());
-                    err.setEntityId(entityId.getValue());
-                    err.setQuery(plsqlBlock);
-                    err.setOriginalQuery(entityBlock.getValue());
-                    err.setPhase(2);
-                    err.setTable(plsql.getOrdNum());
-                    err.setRow(entitySqls.getValue().getRow());
-                    err.setErrMsg(e.getMessage());
-                    logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} Row {}/{}: Error\r\n{}\r\n{}", plsql.getOrdNum(),
-                            tableNums,
-                            entitySqls.getValue().getRow(),
-                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                            e.getMessage(), plsqlBlock);
-                    logSqlError(err);
-                    continue;
-                }
-
-                TableValue<Boolean> plsqlBlockResult = isPlsqlBlock(config, plsqlBlock);
-                dropProc = true;
-                if (plsqlBlockResult.hasError()) {
-                    plsqlBlockResult.getSqlError().setTableName(plsql.getTableName());
-                    plsqlBlockResult.getSqlError().setEntityIdColName(plsql.getPrimKeyColName());
-                    plsqlBlockResult.getSqlError().setSqlColName(plsql.getSqlColName());
-                    plsqlBlockResult.getSqlError().setEntityId(entityId.getValue());
-                    plsqlBlockResult.getSqlError().setQuery(plsqlBlock);
-                    plsqlBlockResult.getSqlError().setOriginalQuery(entityBlock.getValue());
-                    plsqlBlockResult.getSqlError().setPhase(2);
-                    plsqlBlockResult.getSqlError().setTable(plsql.getOrdNum());
-                    plsqlBlockResult.getSqlError().setRow(entitySqls.getValue().getRow());
-                    logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} Row {}/{}: Error\r\n{}\r\n{}", plsql.getOrdNum(),
-                            tableNums,
-                            entitySqls.getValue().getRow(),
-                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME),
-                            plsqlBlockResult.getSqlError().getErrMsg(), plsqlBlock);
-                    logSqlError(plsqlBlockResult.getSqlError());
-                    continue;
-                }
-
-                logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} Row {}/{}: OK", plsql.getOrdNum(), tableNums,
-                        entitySqls.getValue().getRow(),
-                        entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME));
-            }
-            if (isEmptyTable) {
-                logger.info(INFO_MARKER, "Phase 2/2 Table {}/{} Row 0/0: Table is empty", plsql.getOrdNum(), tableNums);
-            }
-        }
-
-        if (dropProc) {
-            if (config.isUseSecondTest()) {
-                try {
-                    test2JdbcTemplate.update(DROP_PLSQL_PROC);
-                } catch (DataAccessException e) {
-                    logger.info(INFO_MARKER, "Phase 2/2 Test 2 Deleting procedure error [{}]", e.getMessage());
-                }
-            } else {
-                try {
-                    test1JdbcTemplate.update(DROP_PLSQL_PROC);
-                } catch (DataAccessException e) {
-                    logger.info(INFO_MARKER, "Phase 2/2 Test 1 Deleting procedure error [{}]", e.getMessage());
-                }
-            }
-        }
     }
 
     private TableValue<Boolean> isPlsqlBlock(Configuration config, String plsqlBlock) {
@@ -873,6 +519,276 @@ public class CheckSqlExecutor {
 
         }
         return new TableValue<SqlRowSet>(sqlRowSet, sqlErr);
+    }
+
+    private SqlError testSelectStatementPart(SqlRowSet value, TableNode sel) throws Exception {
+
+        TableValue<String> entityId = TableValue.createString(value, sel.getPrimKeyColName());
+        TableValue<String> entitySql = TableValue.createString(value, sel.getSqlColName());
+
+        // Remove unavailable statements of SELECT
+        String selectSql = new String(entitySql.getValue());
+        if (selectQuery.valueByName("IMP_DATA_TYPE_PARAM").getTableName().equalsIgnoreCase(sel.getTableName())) {
+            selectSql = replaceStaticImpDataTypeParam(selectSql);
+        } else if (selectQuery.valueByName("IMP_ENTITY").getTableName().equalsIgnoreCase(sel.getTableName())
+                && isPlsqlBlock(selectSql)) {
+            logger.info(INFO_MARKER, "Table {}/{} Row {}/{}: Skip because it is PLSQL\r\n{}",
+                    sel.getOrdNum(), tableNums,
+                    value.getRow(),
+                    value.getString(SelectQuery.TOTAL_ROWS_COL_NAME),
+                    selectSql);
+            return null;
+        }
+
+        if (selectSql.contains("?")) {
+            selectSql = selectSql.replace("?", ":p");
+        }
+        try {
+            selectSql = SqlParser.removeIntoClause(selectSql);
+        } catch (Exception e) {
+            SqlError sqlErr = new SqlError("SELECT-INTO-CLAUSE");
+            sqlErr.setErrMsg(e.getMessage());
+            sqlErr.setTableName(sel.getTableName());
+            sqlErr.setEntityIdColName(sel.getPrimKeyColName());
+            sqlErr.setSqlColName(sel.getSqlColName());
+            sqlErr.setEntityId(entityId.getValue());
+            sqlErr.setPhase(1);
+            sqlErr.setTable(sel.getOrdNum());
+            sqlErr.setRow(value.getRow());
+            logger.info(INFO_MARKER, "Table {}/{} Row {}/{}: Error\r\n{}", sel.getOrdNum(), tableNums,
+                    value.getRow(),
+                    value.getString(SelectQuery.TOTAL_ROWS_COL_NAME),
+                    sqlErr.getErrMsg());
+            return sqlErr;
+        }
+
+        selectSql = removeSemicolonAtTheEnd(selectSql);
+        selectSql = replaceDateBindVars(selectSql);
+        try {
+            selectSql = replaceNonDateBindVars(selectSql);
+        } catch (SqlParsingException e) {
+            SqlError sqlErr = new SqlError("REPLACE-BIND-VARS");
+            sqlErr.setTableName(sel.getTableName());
+            sqlErr.setEntityIdColName(sel.getPrimKeyColName());
+            sqlErr.setSqlColName(sel.getSqlColName());
+            sqlErr.setEntityId(entityId.getValue());
+            sqlErr.setQuery(selectSql);
+            sqlErr.setOriginalQuery(entitySql.getValue());
+            sqlErr.setPhase(1);
+            sqlErr.setTable(sel.getOrdNum());
+            sqlErr.setRow(value.getRow());
+            sqlErr.setErrMsg("Can not parse a SELECT to replace bind variables\r\n" + selectSql);
+            logger.info(INFO_MARKER, "Table {}/{} Row {}/{}: {}", sel.getOrdNum(), tableNums,
+                    value.getRow(),
+                    value.getString(SelectQuery.TOTAL_ROWS_COL_NAME),
+                    sqlErr.getErrMsg());
+            return sqlErr;
+        }
+
+        selectSql = "select 1 as val from (\r\n" + selectSql + "\r\n)";
+        // Check if a query is Select statement and there are privs with help of creating Oracle View. If view
+        // is created then it is Select statement or there are unhandled errors
+        TableValue<Boolean> isSelectResult = isSelectStatement(config, selectSql);
+        dropView = true;
+        if (isSelectResult.hasError()) {
+            isSelectResult.getSqlError().setTableName(sel.getTableName());
+            isSelectResult.getSqlError().setEntityIdColName(sel.getPrimKeyColName());
+            isSelectResult.getSqlError().setSqlColName(sel.getSqlColName());
+            isSelectResult.getSqlError().setEntityId(entityId.getValue());
+            isSelectResult.getSqlError().setQuery(selectSql);
+            isSelectResult.getSqlError().setOriginalQuery(entitySql.getValue());
+            isSelectResult.getSqlError().setPhase(1);
+            isSelectResult.getSqlError().setTable(sel.getOrdNum());
+            isSelectResult.getSqlError().setRow(value.getRow());
+            logger.info(INFO_MARKER, "Table {}/{} Row {}/{}: Error\r\n{}", sel.getOrdNum(), tableNums,
+                    value.getRow(),
+                    value.getString(SelectQuery.TOTAL_ROWS_COL_NAME),
+                    isSelectResult.getSqlError().getErrMsg());
+            return isSelectResult.getSqlError();
+        }
+
+        return null;
+    }
+
+    private SqlError testPlsqlBlocksPart(SqlRowSet value, TableNode plsql) {
+
+        TableValue<String> entityId = TableValue.createString(value, plsql.getPrimKeyColName());
+        TableValue<String> entityBlock = TableValue.createString(value, plsql.getSqlColName());
+
+        if (isSelectStatement(entityBlock.getValue())) {
+            // In some cases, the table column can contain PLSQL blocks and SELECT statements
+            return null;
+        }
+
+        String plsqlBlock = wrapBeginEndIfNeed(entityBlock.getValue());
+        plsqlBlock = removeRowWithValueBindVarIfNeed(plsqlBlock);
+        try {
+            plsqlBlock = replaceBindVars(plsqlBlock, plsql.getTableName(), plsql.getSqlColName(),
+                    entityId.getValue());
+        } catch (Exception e) {
+            SqlError err = new SqlError("PLSQL-REPLACE-BIND");
+            err.setTableName(plsql.getTableName());
+            err.setEntityIdColName(plsql.getPrimKeyColName());
+            err.setSqlColName(plsql.getSqlColName());
+            err.setEntityId(entityId.getValue());
+            err.setQuery(plsqlBlock);
+            err.setOriginalQuery(entityBlock.getValue());
+            err.setPhase(2);
+            err.setTable(plsql.getOrdNum());
+            err.setRow(value.getRow());
+            err.setErrMsg(e.getMessage());
+            logger.info(INFO_MARKER, "Table {}/{} Row {}/{}: Error\r\n{}\r\n{}", plsql.getOrdNum(),
+                    tableNums,
+                    value.getRow(),
+                    value.getString(SelectQuery.TOTAL_ROWS_COL_NAME),
+                    e.getMessage(), plsqlBlock);
+            return err;
+        }
+
+        TableValue<Boolean> plsqlBlockResult = isPlsqlBlock(config, plsqlBlock);
+        dropProc = true;
+        if (plsqlBlockResult.hasError()) {
+            plsqlBlockResult.getSqlError().setTableName(plsql.getTableName());
+            plsqlBlockResult.getSqlError().setEntityIdColName(plsql.getPrimKeyColName());
+            plsqlBlockResult.getSqlError().setSqlColName(plsql.getSqlColName());
+            plsqlBlockResult.getSqlError().setEntityId(entityId.getValue());
+            plsqlBlockResult.getSqlError().setQuery(plsqlBlock);
+            plsqlBlockResult.getSqlError().setOriginalQuery(entityBlock.getValue());
+            plsqlBlockResult.getSqlError().setPhase(2);
+            plsqlBlockResult.getSqlError().setTable(plsql.getOrdNum());
+            plsqlBlockResult.getSqlError().setRow(value.getRow());
+            logger.info(INFO_MARKER, "Table {}/{} Row {}/{}: Error\r\n{}\r\n{}", plsql.getOrdNum(),
+                    tableNums,
+                    value.getRow(),
+                    value.getString(SelectQuery.TOTAL_ROWS_COL_NAME),
+                    plsqlBlockResult.getSqlError().getErrMsg(), plsqlBlock);
+            return plsqlBlockResult.getSqlError();
+        }
+
+        return null;
+    }
+
+    private void testSelectAndPlsqlBlockForAllTables() throws Exception {
+        dropProc = false;
+        tableNums = selectQuery.values().size();
+        dropView = false;
+
+        for (TableNode sql : selectQuery.values()) {
+            testSelectAndPlsqlBlockForAllRows(sql);
+        }
+
+        if (dropView) {
+            dropViewOrProc(DROP_SELECT_VIEW, "Error when view is deleting {}");
+        }
+
+        if (dropProc) {
+            dropViewOrProc(DROP_PLSQL_PROC, "Deleting procedure error [{}]");
+        }
+    }
+
+    private void testSelectAndPlsqlBlockForAllRows(TableNode sql) throws Exception {
+        TableValue<SqlRowSet> entitySqls = getSqlRowSetData(sql);
+        if (entitySqls.hasError()) {
+            logger.info(INFO_MARKER,
+                    "Table {}/{}: Error to get of list with SELECT queries / PLSQL blocks for {}.{}\r\n{}",
+                    sql.getOrdNum(), tableNums, sql.getTableName(), sql.getSqlColName(),
+                    entitySqls.getSqlError().toString());
+            return;
+        }
+
+        boolean isEmptyTable = true;
+        while (entitySqls.getValue().next()) {
+
+            isEmptyTable = false;
+            if (testSqlString(entitySqls.getValue(), sql)) {
+                SqlError sqlSelectErr = testSelectStatementPart(entitySqls.getValue(), sql);
+                SqlError plSqlBlockErr = testPlsqlBlocksPart(entitySqls.getValue(), sql);
+
+                if (sqlSelectErr == null && plSqlBlockErr == null) {
+                    logger.info(INFO_MARKER, "Table {}/{} Row {}/{}: OK", sql.getOrdNum(), tableNums,
+                            entitySqls.getValue().getRow(),
+                            entitySqls.getValue().getString(SelectQuery.TOTAL_ROWS_COL_NAME));
+                } else if (sqlSelectErr != null && plSqlBlockErr == null) {
+                    logSqlError(sqlSelectErr);
+                } else if (sqlSelectErr == null) {
+                    logSqlError(plSqlBlockErr);
+                } else {
+                    sqlSelectErr.union(plSqlBlockErr);
+                    logSqlError(sqlSelectErr);
+                }
+            }
+
+        }
+        if (isEmptyTable) {
+            logger.info(INFO_MARKER, "Table {}/{} Row 0/0: Table {} is empty", sql.getOrdNum(), tableNums,
+                    sql.getTableName());
+        }
+    }
+
+    private boolean testSqlString(SqlRowSet value, TableNode sql) {
+
+        TableValue<String> entityId = TableValue.createString(value, sql.getPrimKeyColName());
+        if (entityId == null || entityId.hasError()) {
+            entityId.getSqlError().setTableName(sql.getTableName());
+            entityId.getSqlError().setEntityIdColName(sql.getPrimKeyColName());
+            entityId.getSqlError().setSqlColName(sql.getSqlColName());
+            entityId.getSqlError().setEntityId(null);
+            entityId.getSqlError().setPhase(1);
+            entityId.getSqlError().setTable(sql.getOrdNum());
+            entityId.getSqlError().setRow(value.getRow());
+            logger.info(INFO_MARKER, "Table {}/{} Row {}/{}: Error\r\n{}", sql.getOrdNum(),
+                    tableNums,
+                    value.getRow(),
+                    value.getString(SelectQuery.TOTAL_ROWS_COL_NAME),
+                    entityId.getSqlError().getErrMsg());
+            return false;
+        }
+
+        TableValue<String> entitySqlBlock = TableValue.createString(value, sql.getSqlColName());
+        if (entitySqlBlock == null || entitySqlBlock.hasError()) {
+            entitySqlBlock.getSqlError().setTableName(sql.getTableName());
+            entitySqlBlock.getSqlError().setEntityIdColName(sql.getPrimKeyColName());
+            entitySqlBlock.getSqlError().setSqlColName(sql.getSqlColName());
+            entitySqlBlock.getSqlError().setEntityId(entityId.getValue());
+            entitySqlBlock.getSqlError().setPhase(1);
+            entitySqlBlock.getSqlError().setTable(sql.getOrdNum());
+            entitySqlBlock.getSqlError().setRow(value.getRow());
+            logger.info(INFO_MARKER, "Table {}/{} Row {}/{}: Error\r\n{}", sql.getOrdNum(),
+                    tableNums,
+                    value.getRow(),
+                    value.getString(SelectQuery.TOTAL_ROWS_COL_NAME),
+                    entitySqlBlock.getSqlError().getErrMsg());
+
+            logSqlError(entitySqlBlock.getSqlError());
+            return false;
+        }
+
+        if (StringUtils.isBlank(entitySqlBlock.getValue())) {
+            logger.info(INFO_MARKER,
+                    "Table {}/{} Row {}/{}: Skip because a value with SELECT / PLSQL is blank",
+                    sql.getOrdNum(), tableNums,
+                    value.getRow(),
+                    value.getString(SelectQuery.TOTAL_ROWS_COL_NAME));
+            return false;
+        }
+
+        return true;
+    }
+
+    private void dropViewOrProc(String statement, String errMsg) {
+        if (config.isUseSecondTest()) {
+            try {
+                test2JdbcTemplate.update(statement);
+            } catch (DataAccessException e) {
+                logger.info(INFO_MARKER, errMsg, e.getMessage());
+            }
+        } else {
+            try {
+                test1JdbcTemplate.update(statement);
+            } catch (DataAccessException e) {
+                logger.info(INFO_MARKER, errMsg, e.getMessage());
+            }
+        }
     }
 
 }

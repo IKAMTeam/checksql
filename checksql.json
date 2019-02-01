@@ -1,7 +1,7 @@
 [
   {"IMP_DATA_MAP.sql_text": "select sql_text from imp_data_map where length(sql_text) > 0"},
   "IMP_DATA_TYPE.sql_text",
-  "IMP_DATA_ENTITY.sql_text",
+  "IMP_ENTITY.sql_text",
   "IMP_SPEC.external_proc",
   {"RULE.sql_text": "select sql_text from rule where is_enabled = 1"},
   {"RULE_CLASS_PARAM_VALUE.v.value_clob": "select v.value_clob from rule_class_param_value v join rule r on (r.rule_id = v.rule_id) where r.is_enabled = 1"},
@@ -9,7 +9,7 @@
   "WF_TEMPLATE_STEP.plsql_block",
   "CONFIG_FIELD.default_value_sql",
   {"CONFIG_FIELD.sql_query": "select sql_query from config_field where config_field_name <> 'XITOR_CLASS_ID'"},
-  {"GRID_PAGE_FIELD.cell_renderer_param1": "select cell_renderer_param1 from grid_page_field where cell_renderer_id = 78"},
+  {"GRID_PAGE_FIELD.param1": "select param1 from grid_page_field where cell_renderer_id = 78"},
   {"IMP_ENTITY_REQ_FIELD.sql_text": "select sql_text from imp_entity_req_field where length(sql_text) > 0"},
   "NOTIF.trackor_sql",
   "NOTIF.user_sql",
