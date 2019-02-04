@@ -1,5 +1,7 @@
 package com.onevizion.checksql.vo;
 
+import com.onevizion.checksql.StringUtils;
+
 public class SqlError {
 
     public static final String SELECT_ERR_TYPE = "SELECT";
@@ -13,6 +15,7 @@ public class SqlError {
     private String errMsg;
     private String errType;
     private String originalQuery;
+    private String shortErrMsg;
 
     private int phase = -1;
     private int table = -1;
@@ -23,33 +26,39 @@ public class SqlError {
         StringBuilder msg = new StringBuilder(LINE_DELIMITER);
         msg.append("==========================");
         msg.append(LINE_DELIMITER);
-        msg.append("[Phase=");
-        msg.append(phase);
-        msg.append(",table=");
-        msg.append(table);
-        msg.append(",row=");
-        msg.append(row);
-        msg.append("][");
-        msg.append(errType);
-        msg.append("][");
-        msg.append(tableName);
-        if (sqlColName != null && (!sqlColName.trim().isEmpty())) {
-            msg.append(".");
-            msg.append(sqlColName);
-        }
-        msg.append("][");
-        if (entityIdColName != null && (!entityIdColName.trim().isEmpty())) {
-            msg.append(entityIdColName);
-            msg.append("=");
-            if (entityId != null && (!entityId.trim().isEmpty())) {
-                msg.append(entityId);
-            }
-            msg.append("][");
-        }
-        msg.append(errMsg);
-        msg.append("]");
-        if (originalQuery != null && (!originalQuery.trim().isEmpty())) {
+
+        if (StringUtils.isNotBlank(tableName)) {
+            msg.append("Table: ");
             msg.append("[");
+            msg.append(tableName);
+            msg.append("]");
+        }
+
+        if (StringUtils.isNotBlank(sqlColName)) {
+            msg.append(" Column: ");
+            msg.append("[");
+            msg.append(sqlColName);
+            msg.append("]");
+        }
+
+        if (StringUtils.isNotBlank(entityId)) {
+            msg.append(" PK: ");
+            msg.append("[");
+            msg.append(entityId);
+            msg.append("]");
+        }
+
+        if (StringUtils.isNotBlank(errMsg)) {
+            msg.append(LINE_DELIMITER);
+            msg.append("Error Massage: ");
+            msg.append("[");
+            msg.append(errMsg);
+            msg.append("]");
+        }
+
+        if (originalQuery != null && (!originalQuery.trim().isEmpty())) {
+            msg.append(LINE_DELIMITER);
+            msg.append("Original Query:[");
             msg.append(originalQuery);
             msg.append("]");
         }
@@ -198,10 +207,22 @@ public class SqlError {
         this.errMsg = errMsg;
     }
 
+    public String getShortErrMsg() {
+        if (StringUtils.isBlank(shortErrMsg)) {
+            return errMsg;
+        } else {
+            return shortErrMsg;
+        }
+    }
+
+    public void setShortErrMsg(String shortErrMsg) {
+        this.shortErrMsg = shortErrMsg;
+    }
+
     public void union(SqlError sqlError) {
         setErrType(getErrType() + ", " + sqlError.getErrType());
         setQuery("[" + getQuery() + "],\r\n [" + sqlError.getQuery() + "]");
-        setPhase(1);
+        setShortErrMsg("[" + getShortErrMsg() + "],\r\n [" + sqlError.getShortErrMsg() + "]");
         setErrMsg("[" + getErrMsg() + "],\r\n [" + sqlError.getErrMsg() + "]");
     }
 
