@@ -1,33 +1,22 @@
 package com.onevizion.checksql;
 
-import java.sql.SQLException;
-import java.util.Properties;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import org.jdom2.Document;
+import com.onevizion.checksql.exception.AppStartupException;
+import com.onevizion.checksql.vo.Configuration;
+import com.onevizion.checksql.vo.TableNode;
+import oracle.jdbc.driver.OracleConnection;
+import oracle.ucp.jdbc.PoolDataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-import com.onevizion.checksql.exception.AppStartupException;
-import com.onevizion.checksql.vo.Configuration;
-import com.onevizion.checksql.vo.TableNode;
-import java.io.FileReader;
-import java.io.IOException;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
-
-import oracle.jdbc.driver.OracleConnection;
-import oracle.ucp.jdbc.PoolDataSource;
-
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
+import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class CheckSqlApp {
 
@@ -62,8 +51,7 @@ public class CheckSqlApp {
                 constring = constring + " " + args[1];
             }
         } else {
-            throw new Exception("Please enter connection string, example(remote_owner(can't be null) local_owner(can be null)): vqs_p01_epm/vepm@192.168.56.101:1521:xe loc_vqs_p01_epm/vepm@192.168.56.101:1521:xe");
-            //throw new Exception(args[0] + "_" + args[1]);
+            throw new Exception("Expected command line arguments: <remote_owner>/<password>@<connect_identifier> [<local_owner>/<password>@<connect_identifier>]");
         }
 
         Configuration configuration = ConfigurationUtils.loadConfiguration(constring);

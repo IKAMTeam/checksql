@@ -555,11 +555,22 @@ public class CheckSqlExecutor {
 
         // Remove unavailable statements of SELECT
         String selectSql = new String(entitySql.getValue());
-        if (selectQuery.valueByName("IMP_DATA_TYPE_PARAM").getTableName().equalsIgnoreCase(sel.getTableName())) {
-            selectSql = replaceStaticImpDataTypeParam(selectSql);
-        } else if (selectQuery.valueByName("IMP_ENTITY").getTableName().equalsIgnoreCase(sel.getTableName())
-                && isPlsqlBlock(selectSql)) {
-            return null;
+
+        try {
+            if (selectQuery.valueByName("IMP_ENTITY").getTableName().equalsIgnoreCase(sel.getTableName())
+                    && isPlsqlBlock(selectSql)) {
+                return null;
+            }
+        } catch (Exception e) {
+            selectSql = new String(entitySql.getValue());
+        }
+
+        try {
+            if (selectQuery.valueByName("IMP_DATA_TYPE_PARAM").getTableName().equalsIgnoreCase(sel.getTableName())) {
+                selectSql = replaceStaticImpDataTypeParam(selectSql);
+            }
+        } catch (Exception e) {
+            selectSql = new String(entitySql.getValue());
         }
 
         if (selectSql.contains("?")) {

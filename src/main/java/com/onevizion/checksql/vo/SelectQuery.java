@@ -1,37 +1,32 @@
 package com.onevizion.checksql.vo;
 
-import com.onevizion.checksql.exception.UnexpectedException;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import javax.annotation.Resource;
-import oracle.ucp.jdbc.PoolDataSourceImpl;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import com.onevizion.checksql.vo.AppSettings;
+
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class SelectQuery{
 
+    public static final String LINE_DELIMITER = "\r\n";
 	public static final String TOTAL_ROWS_COL_NAME = "totalrows";
 	private static final String FILENAME = "checksql.json";
-//        @Resource(name = "owner1JdbcTemplate")
-//        private JdbcTemplate owner1JdbcTemplate;
-//        @Resource(name = "test1JdbcTemplate")
-//        private JdbcTemplate test1JdbcTemplate;
-//        @Resource(name = "test2JdbcTemplate")
-//        private JdbcTemplate test2JdbcTemplate;
-//        @Resource(name = "owner2JdbcTemplate")
-//        private JdbcTemplate owner2JdbcTemplate;
-//        private AppSettings appSettings;
-//        private static final String FIND_FIRST_PROGRAM_ID_NEW = "select program_id from program where rownum < 2 and program_id <> 0";
-//        private static final String FIND_FIRST_PROGRAM_ID_OLD = "select program_id from v_program where rownum < 2";
+    private static final String CHECKSQL_JSON_ERROR_MSG = "Create checksql.json file in working directory." + LINE_DELIMITER +
+            LINE_DELIMITER +
+            "Structure of checksql.json file:" +
+            LINE_DELIMITER +
+            "[" + LINE_DELIMITER +
+            "  {\"table.column\": \"sql select statement\"}," + LINE_DELIMITER +
+            "  \"table.column\"" + LINE_DELIMITER +
+            "]";
     
     private List<TableNode> values = new ArrayList();
 
@@ -81,7 +76,7 @@ public class SelectQuery{
             }            
         } catch (IOException | ParseException ex) {
             Logger.getLogger(SelectQuery.class.getName())
-                    .log(Level.SEVERE, null, ex);
+                  .log(Level.SEVERE, CHECKSQL_JSON_ERROR_MSG, ex);
         }
 
     }
