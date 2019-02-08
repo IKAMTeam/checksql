@@ -2,10 +2,13 @@ package com.onevizion.checksql.vo;
 
 import com.onevizion.checksql.StringUtils;
 
+import java.text.MessageFormat;
+
 public class SqlError {
 
     public static final String SELECT_ERR_TYPE = "SELECT";
     public static final String LINE_DELIMITER = "\r\n";
+    public static final String ERROR_MSG = "Invalid value in {0}.{1} where {2} = {3}:";
 
     private String tableName;
     private String sqlColName;
@@ -27,40 +30,19 @@ public class SqlError {
         msg.append("==========================");
         msg.append(LINE_DELIMITER);
 
-        if (StringUtils.isNotBlank(tableName)) {
-            msg.append("Table: ");
-            msg.append("[");
-            msg.append(tableName);
-            msg.append("]");
+        if (StringUtils.isNotBlank(tableName) && StringUtils.isNotBlank(tableName) && StringUtils.isNotBlank(tableName)
+                && StringUtils.isNotBlank(tableName)) {
+            msg.append(MessageFormat.format(ERROR_MSG, tableName, sqlColName, entityIdColName, entityId));
         }
 
-        if (StringUtils.isNotBlank(sqlColName)) {
-            msg.append(" Column: ");
-            msg.append("[");
-            msg.append(sqlColName);
-            msg.append("]");
-        }
-
-        if (StringUtils.isNotBlank(entityId)) {
-            msg.append(" PK: ");
-            msg.append("[");
-            msg.append(entityId);
-            msg.append("]");
-        }
-
-        if (StringUtils.isNotBlank(errMsg)) {
-            msg.append(LINE_DELIMITER);
-            msg.append("Error Massage: ");
-            msg.append("[");
-            msg.append(errMsg);
-            msg.append("]");
-        }
+        msg.append(LINE_DELIMITER);
+        msg.append(errMsg);
 
         if (originalQuery != null && (!originalQuery.trim().isEmpty())) {
             msg.append(LINE_DELIMITER);
-            msg.append("Original Query:[");
+            msg.append("Original Query:");
+            msg.append(LINE_DELIMITER);
             msg.append(originalQuery);
-            msg.append("]");
         }
         msg.append(LINE_DELIMITER);
 
@@ -221,9 +203,9 @@ public class SqlError {
 
     public void union(SqlError sqlError) {
         setErrType(getErrType() + ", " + sqlError.getErrType());
-        setQuery("[" + getQuery() + "],\r\n [" + sqlError.getQuery() + "]");
-        setShortErrMsg("[" + getShortErrMsg() + "],\r\n [" + sqlError.getShortErrMsg() + "]");
-        setErrMsg("[" + getErrMsg() + "],\r\n [" + sqlError.getErrMsg() + "]");
+        setQuery("[" + getQuery() + "],\r\n[" + sqlError.getQuery() + "]");
+        setShortErrMsg(getShortErrMsg() + "\r\n" + sqlError.getShortErrMsg());
+        setErrMsg(getErrMsg() + "\r\n" + sqlError.getErrMsg());
     }
 
 }

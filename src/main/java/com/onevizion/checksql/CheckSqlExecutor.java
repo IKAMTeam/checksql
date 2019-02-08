@@ -74,6 +74,10 @@ public class CheckSqlExecutor {
 
     private static final String FIND_FIRST_PROGRAM_ID_OLD = "select program_id from v_program where rownum < 2";
 
+    public static final String LINE_DELIMITER = "\r\n";
+
+    public static final String ERROR_MSG = "Invalid value in {}.{} where {} = {}:" + LINE_DELIMITER + "{}";
+
     private List<SqlError> sqlErrors;
 
     private boolean dropView;
@@ -86,7 +90,7 @@ public class CheckSqlExecutor {
     }
 
     public void run(Configuration config) {
-        logger.info(INFO_MARKER, "SQL Checker is started");
+        logger.info(INFO_MARKER, "Check-sql started");
         this.config = config;
 
         configAppSettings();
@@ -105,7 +109,7 @@ public class CheckSqlExecutor {
         }
 
         logSqlErrors();
-        logger.info(INFO_MARKER, "SQL Checker is completed");
+        logger.info(INFO_MARKER, "Check-sql completed");
     }
 
     private void configAppSettings() {
@@ -280,7 +284,8 @@ public class CheckSqlExecutor {
 
     private void logSqlError(SqlError sqlError) {
         logFullSqlError(sqlError);
-        logShortError(sqlError.getTableName(), sqlError.getSqlColName(), sqlError.getEntityId(), sqlError.getShortErrMsg());
+        logShortError(sqlError.getTableName(), sqlError.getSqlColName(), sqlError.getEntityIdColName(),
+                sqlError.getEntityId(), sqlError.getShortErrMsg());
     }
 
     private TableValue<Boolean> isPlsqlBlock(Configuration config, String plsqlBlock) {
@@ -774,8 +779,13 @@ public class CheckSqlExecutor {
         }
     }
 
-    private void logShortError(String table, String column, String pk, String error) {
-        logger.info(INFO_MARKER, "Table: [{}] Column: [{}] PK: [{}] Error Message: [{}]", table, column, pk, error.trim());
+    private void logShortError(String table, String column, String pkColumn, String pk, String error) {
+        if (StringUtils.isNotBlank(table) && StringUtils.isNotBlank(table) && StringUtils.isNotBlank(table)
+                && StringUtils.isNotBlank(table)) {
+            logger.info(INFO_MARKER, ERROR_MSG, table, column, pkColumn, pk, error.trim());
+        } else {
+            logger.info(INFO_MARKER, error.trim());
+        }
     }
 
 }

@@ -60,26 +60,21 @@ public class CheckSqlApp {
 
         String[] owner1DbUrlParts = parseDbCnnStr(configuration.getRemoteOwner());
         configuration.setOwner1DbSchema(owner1DbUrlParts[0]);
-        configDataSource((PoolDataSource) ctx.getBean("owner1DataSource"), owner1DbUrlParts, "check-sql_owner1", false,
-                true);
+        configDataSource((PoolDataSource) ctx.getBean("owner1DataSource"), owner1DbUrlParts, "check-sql_owner1");
 
-        //String[] test1DbUrlParts = parseDbCnnStr(configuration.getRemoteUser());
         String[] test1DbUrlParts = parseDbCnnStr(configuration.getRemoteOwner());
         configuration.setTest1DbSchema(test1DbUrlParts[0]);
-        configDataSource((PoolDataSource) ctx.getBean("test1DataSource"), test1DbUrlParts, "check-sql_test1", false,
-                false);
+        configDataSource((PoolDataSource) ctx.getBean("test1DataSource"), test1DbUrlParts, "check-sql_test1");
 
         if (configuration.isUseSecondTest()) {
             String[] owner2DbUrlParts = parseDbCnnStr(configuration.getLocalOwner());
             configuration.setOwner2DbSchema(owner2DbUrlParts[0]);
-            configDataSource((PoolDataSource) ctx.getBean("owner2DataSource"), owner2DbUrlParts, "check-sql_owner2",
-                    true, true);
+            configDataSource((PoolDataSource) ctx.getBean("owner2DataSource"), owner2DbUrlParts, "check-sql_owner2");
 
             //String[] test2DbUrlParts = parseDbCnnStr(configuration.getLocalUser());
             String[] test2DbUrlParts = parseDbCnnStr(configuration.getLocalOwner());
             configuration.setTest2DbSchema(test2DbUrlParts[0]);
-            configDataSource((PoolDataSource) ctx.getBean("test2DataSource"), test2DbUrlParts, "check-sql_test2", true,
-                    false);
+            configDataSource((PoolDataSource) ctx.getBean("test2DataSource"), test2DbUrlParts, "check-sql_test2");
         }
 
         CheckSqlExecutor executor = ctx.getBean(CheckSqlExecutor.class);
@@ -162,8 +157,7 @@ public class CheckSqlApp {
         return ctx;
     }
 
-    private static void configDataSource(PoolDataSource ds, String[] cnnProps, String programName, boolean isLocal,
-            boolean isOwner) {
+    private static void configDataSource(PoolDataSource ds, String[] cnnProps, String programName) {
         try {
             ds.setUser(cnnProps[0]);
             ds.setPassword(cnnProps[1]);
@@ -176,23 +170,6 @@ public class CheckSqlApp {
             }
             props.setProperty(OracleConnection.CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM, programName);
             ds.setConnectionProperties(props);
-            if (isLocal) {
-                if (isOwner) {
-                    logger.info(CheckSqlExecutor.INFO_MARKER,
-                            "The data source is configured: local_owner=" + ds.getUser() + ", url=" + ds.getURL());
-                } else {
-                    logger.info(CheckSqlExecutor.INFO_MARKER,
-                            "The data source is configured: local_user=" + ds.getUser() + ", url=" + ds.getURL());
-                }
-            } else {
-                if (isOwner) {
-                    logger.info(CheckSqlExecutor.INFO_MARKER,
-                            "The data source is configured: remote_owner=" + ds.getUser() + ", url=" + ds.getURL());
-                } else {
-                    logger.info(CheckSqlExecutor.INFO_MARKER,
-                            "The data source is configured: remote_user=" + ds.getUser() + ", url=" + ds.getURL());
-                }
-            }
         } catch (SQLException e) {
             logger.info(CheckSqlExecutor.INFO_MARKER, "Can't set connection properties", e);
         }

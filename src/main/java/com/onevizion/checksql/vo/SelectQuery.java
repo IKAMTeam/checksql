@@ -160,7 +160,6 @@ public class SelectQuery{
         //id = -1;
         if (id == -1){
             throw new Exception("SelectQuery.valueByName(String " + name + ") TableNode with this name not found");
-            //throw new Exception("name" + name + " where" + where + " from" + from + " pk" + pk + " sqlcol" + sqlcol + " sql" + sql + ") TableNode with this name not found");
         }
         else {
             return this.values.get(id);
