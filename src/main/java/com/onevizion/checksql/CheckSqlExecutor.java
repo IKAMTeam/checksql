@@ -76,7 +76,7 @@ public class CheckSqlExecutor {
 
     public static final String LINE_DELIMITER = "\r\n";
 
-    public static final String ERROR_MSG = "Invalid value in {}.{} where {} = {}:" + LINE_DELIMITER + "{}";
+    public static final String ERROR_MSG = "Invalid value in {}.{} where {} = {}:" + LINE_DELIMITER + "{}" + LINE_DELIMITER;
 
     private List<SqlError> sqlErrors;
 
