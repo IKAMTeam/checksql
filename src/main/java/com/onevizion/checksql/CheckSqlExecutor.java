@@ -74,6 +74,8 @@ public class CheckSqlExecutor {
 
     private static final Marker DATA_MARKER = MarkerFactory.getMarker("DATA_SQL");
 
+    public static final Marker ERR_MARKER = MarkerFactory.getMarker("ERR_SQL");
+
     private static SelectQuery selectQuery;
 
     private static final String FIND_FIRST_PROGRAM_ID_NEW = "select program_id from program where rownum < 2 and program_id <> 0";
@@ -82,21 +84,22 @@ public class CheckSqlExecutor {
 
     public static final String LINE_DELIMITER = "\r\n";
 
-    public static final String ERROR_MSG = "Invalid value in {}.{} where {} = {}:" + LINE_DELIMITER + "{}" + LINE_DELIMITER;
+    public static final String ERROR_MSG = "Invalid value in {}.{} where {} = {}" + LINE_DELIMITER + "{}" + LINE_DELIMITER;
 
     private List<SqlError> sqlErrors;
 
     private boolean dropView;
     private boolean dropProc;
-    private int tableNums;
     private Configuration config;
+
+    private HashMap<String, Long> tableStats = new HashMap<>();
 
     public CheckSqlExecutor() {
         sqlErrors = new ArrayList<SqlError>();
     }
 
     public void run(Configuration config) {
-        logger.info(INFO_MARKER, "Check-sql started");
+        logger.info(INFO_MARKER, "check-sql started");
         this.config = config;
 
         configAppSettings();
@@ -115,7 +118,7 @@ public class CheckSqlExecutor {
         }
 
         logSqlErrors();
-        logger.info(INFO_MARKER, "Check-sql completed");
+        logger.info(INFO_MARKER, "check-sql completed");
     }
 
     private void configAppSettings() {
@@ -187,7 +190,7 @@ public class CheckSqlExecutor {
     }
 
     private void logTableStats() {
-        SortedMap<String, Integer> tableStats = new TreeMap<String, Integer>(new Comparator<String>() {
+        SortedMap<String, Integer> tableErrStats = new TreeMap<String, Integer>(new Comparator<String>() {
 
             @Override
             public int compare(String arg0, String arg1) {
@@ -196,11 +199,11 @@ public class CheckSqlExecutor {
         });
   
         for (TableNode select : selectQuery.values()) {
-            tableStats.put(select.getTableName().toLowerCase(), 0);
+            tableErrStats.put(select.getTableName().toLowerCase(), 0);
         }
 
         for (TableNode plsql : /*plsqlBlock*/selectQuery.values()) {
-            tableStats.put(plsql.getTableName().toLowerCase(), 0);
+            tableErrStats.put(plsql.getTableName().toLowerCase(), 0);
         }
 
         for (SqlError err : sqlErrors) {
@@ -208,14 +211,22 @@ public class CheckSqlExecutor {
                 continue;
             }
             String tableName = err.getTableName().toLowerCase();
-            Integer count = tableStats.get(tableName);
+            Integer count = tableErrStats.get(tableName);
             count++;
-            tableStats.put(tableName, count);
+            tableErrStats.put(tableName, count);
         }
-        logger.info(INFO_MARKER, "========TABLE STATS=========");
-        for (String tableName : tableStats.keySet()) {
-            Integer cnt = tableStats.get(tableName);
-            logger.info(INFO_MARKER, "table=" + tableName + ", err-count=" + cnt);
+        logger.info(INFO_MARKER, "========check-sql Summary=========");
+
+        logger.info(INFO_MARKER, "Passed (table name, rows checked):");
+        for (String tableName : tableErrStats.keySet()) {
+            Long passedRowCount = tableStats.get(tableName) - tableErrStats.get(tableName);
+            logger.info(INFO_MARKER, tableName + ", " + passedRowCount.toString());
+        }
+
+        logger.error(ERR_MARKER, LINE_DELIMITER + "Failed (table name, errors count):");
+        for (String tableName : tableErrStats.keySet()) {
+            Integer cnt = tableErrStats.get(tableName);
+            logger.error(ERR_MARKER, tableName + ", " + cnt);
         }
     }
 
@@ -697,7 +708,6 @@ public class CheckSqlExecutor {
 
     private void testSelectAndPlsqlBlockForAllTables() throws Exception {
         dropProc = false;
-        tableNums = selectQuery.values().size();
         dropView = false;
 
         for (TableNode sql : selectQuery.values()) {
@@ -720,8 +730,9 @@ public class CheckSqlExecutor {
             return;
         }
 
+        Long rowCount = 0L;
         while (entitySqls.getValue().next()) {
-
+            rowCount++;
             if (testSqlString(entitySqls.getValue(), sql)) {
                 SqlError sqlSelectErr = testSelectStatementPart(entitySqls.getValue(), sql);
                 SqlError plSqlBlockErr = testPlsqlBlocksPart(entitySqls.getValue(), sql);
@@ -737,6 +748,8 @@ public class CheckSqlExecutor {
             }
 
         }
+
+        tableStats.put(sql.getTableName(), rowCount);
     }
 
     private boolean testSqlString(SqlRowSet value, TableNode sql) {

@@ -8,7 +8,7 @@ public class SqlError {
 
     public static final String SELECT_ERR_TYPE = "SELECT";
     public static final String LINE_DELIMITER = "\r\n";
-    public static final String ERROR_MSG = "Invalid value in {0}.{1} where {2} = {3}:";
+    public static final String ERROR_MSG = "Invalid value in {0}.{1} where {2} = {3}";
 
     private String tableName;
     private String sqlColName;

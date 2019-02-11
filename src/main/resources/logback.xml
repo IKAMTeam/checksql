@@ -23,9 +23,9 @@
         <file>logs/${schema}_info.log</file>
         <append>true</append>
         <filter class="com.onevizion.checksql.CheckSqlLogFilter">
-            <marker>INFO_SQL</marker>
-            <onMatch>ACCEPT</onMatch>
-            <onMismatch>DENY</onMismatch>
+            <marker>DATA_SQL</marker>
+            <onMatch>DENY</onMatch>
+            <onMismatch>ACCEPT</onMismatch>
         </filter>
 
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
@@ -51,10 +51,27 @@
         </encoder>
     </appender>
 
+    <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.err</target>
+        <filter class="com.onevizion.checksql.CheckSqlLogFilter">
+            <marker>ERR_SQL</marker>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+
+        <encoder>
+            <pattern>%msg %n</pattern>
+        </encoder>
+    </appender>
+
     <root level="INFO">
         <appender-ref ref="FILE_DATA" />
         <appender-ref ref="FILE_INFO" />
         <appender-ref ref="STDOUT" />
+    </root>
+
+    <root level="ERROR">
+        <appender-ref ref="STDERR" />
     </root>
 
     <logger name="com.onevizion" level="DEBUG" />
