@@ -16,11 +16,13 @@ Structure of checksql.json file:
 Set DB connection string for source DB schema where SQL statements will be extracted in <remote_owner> parameter, and DB connection string for DB where SQL statements will be tested in <local_owner> parameter. Values may be the same. See examples bellow:
 
 ```
-java -jar check-sql.jar <remote_owner>/<password>@<connect_identifier> [<local_owner>/<password>@<connect_identifier>]
+java -jar check-sql.jar <remote_owner>/<password>@<connect_identifier> [<local_owner>/<password>@<connect_identifier>] [path_to_config_file]
 
 java -jar check-sql.jar vqs_p01_epm/****@192.168.56.101:1521:xe vqs_p01_epm/****@192.168.56.101:1521:xe
 
 java -jar check-sql.jar vqs_p01_epm/****@192.168.56.101:1521:xe
+
+java -jar check-sql.jar vqs_p01_epm/****@192.168.56.101:1521:xe /home/test/checksql.json
 ```
 
 After start app will print progress, summary and additional information to the standard output. Summary will contain info on each table tested and may look like this:
