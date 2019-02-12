@@ -4,10 +4,7 @@ import com.onevizion.checksql.exception.SqlParsingException;
 import com.onevizion.checksql.exception.UnexpectedException;
 import com.onevizion.checksql.vo.*;
 import oracle.ucp.jdbc.PoolDataSourceImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.Marker;
-import org.slf4j.MarkerFactory;
+import org.slf4j.*;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -93,7 +90,7 @@ public class CheckSqlExecutor {
     }
 
     public void run(Configuration config) {
-        logger.info(INFO_MARKER, "check-sql started");
+        logger.info(INFO_MARKER, "check-sql " + getClass().getPackage().getImplementationVersion());
         this.config = config;
 
         configAppSettings();
