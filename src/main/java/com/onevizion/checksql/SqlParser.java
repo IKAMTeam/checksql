@@ -1,26 +1,20 @@
 package com.onevizion.checksql;
 
+import com.onevizion.checksql.exception.SqlParsingException;
+import com.onevizion.checksql.vo.SqlStatementType;
+import gudusoft.gsqlparser.*;
+import gudusoft.gsqlparser.nodes.TOrderBy;
+import gudusoft.gsqlparser.nodes.TResultColumn;
+import gudusoft.gsqlparser.nodes.TResultColumnList;
+import gudusoft.gsqlparser.stmt.TCommonBlock;
+import gudusoft.gsqlparser.stmt.TSelectSqlStatement;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import com.onevizion.checksql.exception.SqlParsingException;
-
-import gudusoft.gsqlparser.EDbVendor;
-import gudusoft.gsqlparser.EExpressionType;
-import gudusoft.gsqlparser.ETokenType;
-import gudusoft.gsqlparser.TCustomSqlStatement;
-import gudusoft.gsqlparser.TGSqlParser;
-import gudusoft.gsqlparser.TSourceToken;
-import gudusoft.gsqlparser.TSyntaxError;
-import gudusoft.gsqlparser.nodes.TOrderBy;
-import gudusoft.gsqlparser.nodes.TResultColumn;
-import gudusoft.gsqlparser.nodes.TResultColumnList;
-import gudusoft.gsqlparser.stmt.TCommonBlock;
-import gudusoft.gsqlparser.stmt.TSelectSqlStatement;
 
 public class SqlParser {
 
@@ -29,30 +23,6 @@ public class SqlParser {
     private static Pattern orderByInBracketsPattern = Pattern.compile("\\s+order\\s+by\\s*.*?\\)", Pattern.DOTALL);
 
     private static Pattern quotesPattern = Pattern.compile("'[^']*?'");
-
-    public static TGSqlParser getParser(String sqlText) {
-        TGSqlParser sqlparser = new TGSqlParser(EDbVendor.dbvoracle);
-        sqlparser.sqltext = sqlText;
-        int ret;
-        try {
-            ret = sqlparser.parse();
-        } catch (Exception e) {
-            throw new SqlParsingException("SQLParser can not parse SQL:\r\n" + sqlText + "\r\n", e);
-        }
-        if (ret != 0) {
-            ArrayList<TSyntaxError> errors = sqlparser.getSyntaxErrors();
-            TSyntaxError error = errors.get(0);
-            StringBuilder msg = new StringBuilder("Syntax error near \"");
-            msg.append(error.tokentext);
-            msg.append("\", line ");
-            msg.append(error.lineNo);
-            msg.append(", column ");
-            msg.append(error.columnNo);
-            throw new SqlParsingException(msg.toString());
-        }
-
-        return sqlparser;
-    }
 
     public static List<String> getCols(String sqlText) {
         return getCols(getParser(sqlText));
@@ -225,33 +195,6 @@ public class SqlParser {
         return isPlsql;
     }
 
-    public static boolean isSelectStatement(String sqlText) {
-        boolean isSelect = false;
-
-        if (StringUtils.isNotBlank(sqlText)) {
-            TGSqlParser sqlParser = getParser(sqlText);
-
-            isSelect = isSelectStatement(sqlParser);
-        }
-        return isSelect;
-    }
-
-    public static boolean isSelectStatement(TGSqlParser sqlParser) {
-        boolean isSelect = false;
-        if (sqlParser.sqlstatements == null || sqlParser.sqlstatements.size() == 0) {
-            isSelect = false;
-        } else {
-            TCustomSqlStatement customSqlStatement = sqlParser.sqlstatements.get(0);
-            if (customSqlStatement instanceof TSelectSqlStatement) {
-                TSelectSqlStatement selectSqlStatement = (TSelectSqlStatement) customSqlStatement;
-                isSelect = StringUtils.isNotBlank(selectSqlStatement.toString());
-            } else {
-                isSelect = false;
-            }
-        }
-        return isSelect;
-    }
-
     public static String getFirstTableName(String sqlText) {
         if (isSelectStatement(sqlText)) {
             TGSqlParser sqlParser = getParser(sqlText);
@@ -300,4 +243,84 @@ public class SqlParser {
         String newSql = StringUtils.concatList(tokens, "");
         return newSql;
     }
+
+    public static boolean isSelectStatement(String sqlText) {
+        boolean isSelect = false;
+
+        if (StringUtils.isNotBlank(sqlText)) {
+            TGSqlParser sqlParser = getParser(sqlText);
+
+            if (sqlParser.sqlstatements == null || sqlParser.sqlstatements.size() == 0) {
+                isSelect = false;
+            } else {
+                TCustomSqlStatement customSqlStatement = sqlParser.sqlstatements.get(0);
+                if (customSqlStatement instanceof TSelectSqlStatement) {
+                    TSelectSqlStatement selectSqlStatement = (TSelectSqlStatement) customSqlStatement;
+                    isSelect = StringUtils.isNotBlank(selectSqlStatement.toString());
+                } else {
+                    isSelect = false;
+                }
+            }
+        }
+        return isSelect;
+    }
+
+
+    public static TGSqlParser getParser(String sqlText) {
+        TGSqlParser sqlparser = new TGSqlParser(EDbVendor.dbvoracle);
+        sqlparser.sqltext = sqlText;
+        int ret = sqlparser.parse();
+        String msg = null;
+        if (ret > 0) {
+            ArrayList<TSyntaxError> errors = sqlparser.getSyntaxErrors();
+            TSyntaxError error = errors.get(0);
+            msg = "Syntax error near \"" + error.tokentext + "\", line " + error.lineNo + ", column " + error.columnNo;
+        } else if (ret < 0) {
+            msg = "General parser error: " + sqlparser.getErrormessage();
+        }
+
+        if (StringUtils.isNotBlank(msg)) {
+            throw new SqlParsingException(msg);
+        }
+
+        return sqlparser;
+    }
+
+    public static SqlStatementType recognizeSelectStatementAndPlSql(String sqlText) {
+        boolean selectStatementCheck = false;
+        boolean plsqlBlockCheck = false;
+
+        try {
+            selectStatementCheck = isSelectStatement(sqlText);
+        } catch (Exception e) {
+            selectStatementCheck = false;
+        }
+
+        if (selectStatementCheck) {
+            return SqlStatementType.SELECT;
+        }
+
+        try {
+            plsqlBlockCheck = isPlsqlBlock(sqlText);
+        } catch (Exception e) {
+            plsqlBlockCheck = false;
+        }
+
+        if (!plsqlBlockCheck) {
+            String sqlTextWithBeginEnd = "begin " + sqlText + " end;";
+
+            try {
+                plsqlBlockCheck = isPlsqlBlock(sqlTextWithBeginEnd);
+            } catch (Exception e) {
+                plsqlBlockCheck = false;
+            }
+        }
+
+        if (!plsqlBlockCheck) {
+            return SqlStatementType.EMPTY;
+        } else {
+            return SqlStatementType.PL_SQL;
+        }
+    }
+
 }

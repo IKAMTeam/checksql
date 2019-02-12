@@ -3,12 +3,6 @@ package com.onevizion.checksql;
 import com.onevizion.checksql.exception.SqlParsingException;
 import com.onevizion.checksql.exception.UnexpectedException;
 import com.onevizion.checksql.vo.*;
-import gudusoft.gsqlparser.EDbVendor;
-import gudusoft.gsqlparser.TCustomSqlStatement;
-import gudusoft.gsqlparser.TGSqlParser;
-import gudusoft.gsqlparser.TSyntaxError;
-import gudusoft.gsqlparser.stmt.TCommonBlock;
-import gudusoft.gsqlparser.stmt.TSelectSqlStatement;
 import oracle.ucp.jdbc.PoolDataSourceImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -578,10 +572,6 @@ public class CheckSqlExecutor {
         // Remove unavailable statements of SELECT
         String selectSql = new String(entitySql.getValue());
 
-        if (!isSelectStatementSqlParserMain(selectSql)) {
-            return null;
-        }
-
         try {
             if (selectQuery.valueByName("IMP_ENTITY").getTableName().equalsIgnoreCase(sel.getTableName())
                     && isPlsqlBlock(selectSql)) {
@@ -734,8 +724,22 @@ public class CheckSqlExecutor {
         while (entitySqls.getValue().next()) {
             rowCount++;
             if (testSqlString(entitySqls.getValue(), sql)) {
-                SqlError sqlSelectErr = testSelectStatementPart(entitySqls.getValue(), sql);
-                SqlError plSqlBlockErr = testPlsqlBlocksPart(entitySqls.getValue(), sql);
+
+                SqlError sqlSelectErr = null;
+                SqlError plSqlBlockErr = null;
+
+                switch (recognizeSelectOrPlSql(entitySqls.getValue(), sql)) {
+                    case SELECT:
+                        sqlSelectErr = testSelectStatementPart(entitySqls.getValue(), sql);
+                        break;
+                    case PL_SQL:
+                        plSqlBlockErr = testPlsqlBlocksPart(entitySqls.getValue(), sql);
+                        break;
+                    case EMPTY:
+                        sqlSelectErr = testSelectStatementPart(entitySqls.getValue(), sql);
+                        plSqlBlockErr = testPlsqlBlocksPart(entitySqls.getValue(), sql);
+                        break;
+                }
 
                 if (sqlSelectErr != null && plSqlBlockErr != null) {
                     sqlSelectErr.union(plSqlBlockErr);
@@ -811,87 +815,12 @@ public class CheckSqlExecutor {
         }
     }
 
-    public static boolean isSelectStatementSqlParser(String sqlText) {
-        boolean isSelect = false;
+    private SqlStatementType recognizeSelectOrPlSql(SqlRowSet value, TableNode sel) {
 
-        if (StringUtils.isNotBlank(sqlText)) {
-            TGSqlParser sqlParser = getParser(sqlText);
+        TableValue<String> entitySql = TableValue.createString(value, sel.getSqlColName());
+        String selectSql = new String(entitySql.getValue());
 
-            if (sqlParser.sqlstatements == null || sqlParser.sqlstatements.size() == 0) {
-                isSelect = false;
-            } else {
-                TCustomSqlStatement customSqlStatement = sqlParser.sqlstatements.get(0);
-                if (customSqlStatement instanceof TSelectSqlStatement) {
-                    TSelectSqlStatement selectSqlStatement = (TSelectSqlStatement) customSqlStatement;
-                    isSelect = StringUtils.isNotBlank(selectSqlStatement.toString());
-                } else {
-                    isSelect = false;
-                }
-            }
-        }
-        return isSelect;
-    }
-
-    public static boolean isPlsqlBlockSqlParser(String sqlText) {
-        boolean isPlsql = false;
-
-        if (StringUtils.isNotBlank(sqlText)) {
-            TGSqlParser sqlParser = getParser(sqlText);
-
-            try {
-                TCommonBlock block = (TCommonBlock) sqlParser.sqlstatements.get(0);
-                TCustomSqlStatement body = block.getBodyStatements().get(0);
-                isPlsql = StringUtils.isNotBlank(body.toString());
-            } catch (ClassCastException s) {
-                isPlsql = false;
-            }
-        }
-        return isPlsql;
-    }
-
-    public static TGSqlParser getParser(String sqlText) {
-        TGSqlParser sqlparser = new TGSqlParser(EDbVendor.dbvoracle);
-        sqlparser.sqltext = sqlText;
-        int ret = sqlparser.parse();
-        String msg = null;
-        if (ret > 0) {
-            ArrayList<TSyntaxError> errors = sqlparser.getSyntaxErrors();
-            TSyntaxError error = errors.get(0);
-            msg = "Syntax error near \"" + error.tokentext + "\", line " + error.lineNo + ", column " + error.columnNo;
-        } else if (ret < 0) {
-            msg = "General parser error: " + sqlparser.getErrormessage();
-        }
-
-        if (StringUtils.isNotBlank(msg)) {
-            throw new SqlParsingException(msg);
-        }
-
-        return sqlparser;
-    }
-
-    public static boolean isSelectStatementSqlParserMain(String sqlText) {
-        boolean selectStatementCheck = false;
-        boolean plsqlBlockCheck = false;
-
-        try {
-            selectStatementCheck = isSelectStatementSqlParser(sqlText);
-        } catch (Exception e) {
-            selectStatementCheck = false;
-        }
-
-        try {
-            plsqlBlockCheck = isPlsqlBlockSqlParser(sqlText);
-        } catch (Exception e) {
-            plsqlBlockCheck = false;
-        }
-
-        if (selectStatementCheck) {
-            return true;
-        } else if (!plsqlBlockCheck) {
-            return true;
-        } else {
-            return false;
-        }
+        return SqlParser.recognizeSelectStatementAndPlSql(selectSql);
     }
 
 }
