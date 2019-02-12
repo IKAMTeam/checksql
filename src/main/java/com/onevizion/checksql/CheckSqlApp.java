@@ -13,6 +13,7 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.regex.Matcher;
@@ -42,19 +43,15 @@ public class CheckSqlApp {
      */
     public static void main(String[] args) throws Exception {
         CheckSqlApp app = new CheckSqlApp();
-
+        List<String> listArgs;
         //Document doc;
-        String constring;
         if (args.length > 0) {
-            constring = args[0];
-            if (args.length > 1) {
-                constring = constring + " " + args[1];
-            }
+            listArgs = Arrays.asList(args);
         } else {
             throw new Exception("Expected command line arguments: <remote_owner>/<password>@<connect_identifier> [<local_owner>/<password>@<connect_identifier>]");
         }
 
-        Configuration configuration = ConfigurationUtils.loadConfiguration(constring);
+        Configuration configuration = ConfigurationUtils.loadConfiguration(listArgs);
 
         ApplicationContext ctx = app.getAppContext("com/onevizion/checksql/beans.xml", configuration);
 

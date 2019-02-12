@@ -4,7 +4,10 @@ import com.onevizion.checksql.exception.SqlParsingException;
 import com.onevizion.checksql.exception.UnexpectedException;
 import com.onevizion.checksql.vo.*;
 import oracle.ucp.jdbc.PoolDataSourceImpl;
-import org.slf4j.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.Marker;
+import org.slf4j.MarkerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -95,7 +98,11 @@ public class CheckSqlExecutor {
 
         configAppSettings();
         try {
-            selectQuery = new SelectQuery(owner1JdbcTemplate); 
+            if (StringUtils.isBlank(config.getPathToConfigFile())) {
+                selectQuery = new SelectQuery(owner1JdbcTemplate);
+            } else {
+                selectQuery = new SelectQuery(owner1JdbcTemplate, config.getPathToConfigFile());
+            }
         } catch (Exception e) {
             logger.info(INFO_MARKER, "SQL Checker is failed with error\r\n{}", e);
             return;

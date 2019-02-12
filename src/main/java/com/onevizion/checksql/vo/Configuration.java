@@ -1,23 +1,14 @@
 package com.onevizion.checksql.vo;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class Configuration {
 
     private String remoteOwner;
-    //private String remoteUser;
     private String localOwner;
-    //private String localUser;
-    //private boolean enabledSql = true;
-    //private boolean enabledPlSql = true;
-    //private List<String> skipTablesSql = new ArrayList<String>();
-    //private List<String> skipTablesPlSql = new ArrayList<String>();
     private String owner1DbSchema;
     private String owner2DbSchema;
     private String test1DbSchema;
     private String test2DbSchema;
-
+    private String pathToConfigFile;
     private boolean useSecondTest;
 
     public String getRemoteOwner() {
@@ -28,14 +19,6 @@ public class Configuration {
         this.remoteOwner = remoteOwner;
     }
 
-    /*public String getRemoteUser() {
-        return remoteUser;
-    }*/
-
-    /*public void setRemoteUser(String remoteUser) {
-        this.remoteUser = remoteUser;
-    }*/
-
     public String getLocalOwner() {
         return localOwner;
     }
@@ -44,46 +27,6 @@ public class Configuration {
         this.localOwner = localOwner;
     }
 
-    /*public String getLocalUser() {
-        return localUser;
-    }*/
-
-    /*public void setLocalUser(String localUser) {
-        this.localUser = localUser;
-    }*/
-
-    /*public boolean isEnabledSql() {
-        return enabledSql;
-    }*/
-
-    /*public void setEnabledSql(boolean enabledSql) {
-        this.enabledSql = enabledSql;
-    }*/
-
-    /*public boolean isEnabledPlSql() {
-        return enabledPlSql;
-    }*/
-
-    /*public void setEnabledPlSql(boolean enabledPlSql) {
-        this.enabledPlSql = enabledPlSql;
-    }*/
-
-    /*public List<String> getSkipTablesSql() {
-        return skipTablesSql;
-    }*/
-
-    /*public void setSkipTablesSql(List<String> skipTablesSql) {
-        this.skipTablesSql = skipTablesSql;
-    }*/
-
-    /*public List<String> getSkipTablesPlSql() {
-        return skipTablesPlSql;
-    }*/
-
-    /*public void setSkipTablesPlSql(List<String> skipTablesPlSql) {
-        this.skipTablesPlSql = skipTablesPlSql;
-    }*/
-
     public boolean isUseSecondTest() {
         return useSecondTest;
     }
@@ -91,14 +34,6 @@ public class Configuration {
     public void setUseSecondTest(boolean useSecondTest) {
         this.useSecondTest = useSecondTest;
     }
-
-    /*public boolean isSkippedSqlTable(String tableName) {
-        return getSkipTablesSql().contains(tableName);
-    }*/
-
-    /*public boolean isSkippedPlsqlTable(String tableName) {
-        return getSkipTablesPlSql().contains(tableName);
-    }*/
 
     public String getOwner1DbSchema() {
         return owner1DbSchema;
@@ -130,6 +65,14 @@ public class Configuration {
 
     public void setTest2DbSchema(String test2DbSchema) {
         this.test2DbSchema = test2DbSchema;
+    }
+
+    public String getPathToConfigFile() {
+        return pathToConfigFile;
+    }
+
+    public void setPathToConfigFile(String pathToConfigFile) {
+        this.pathToConfigFile = pathToConfigFile;
     }
 
 }
