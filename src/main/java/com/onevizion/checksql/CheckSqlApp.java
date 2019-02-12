@@ -48,7 +48,7 @@ public class CheckSqlApp {
         if (args.length > 0) {
             listArgs = Arrays.asList(args);
         } else {
-            throw new Exception("Expected command line arguments: <remote_owner>/<password>@<connect_identifier> [<local_owner>/<password>@<connect_identifier>]");
+            throw new Exception("Expected command line arguments: <remote_owner>/<password>@<connect_identifier> [<local_owner>/<password>@<connect_identifier>] [path_to_config_file]");
         }
 
         Configuration configuration = ConfigurationUtils.loadConfiguration(listArgs);
