@@ -224,7 +224,9 @@ public class CheckSqlExecutor {
         logger.error(ERR_MARKER, LINE_DELIMITER + "Failed (table name, errors count):");
         for (String tableName : tableErrStats.keySet()) {
             Integer cnt = tableErrStats.get(tableName);
-            logger.error(ERR_MARKER, tableName + ", " + cnt);
+            if(cnt>0) {
+                logger.error(ERR_MARKER, tableName + ", " + cnt);
+            }
         }
     }
 
