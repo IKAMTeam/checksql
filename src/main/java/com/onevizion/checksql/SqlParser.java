@@ -290,10 +290,14 @@ public class SqlParser {
         boolean selectStatementCheck = false;
         boolean plsqlBlockCheck = false;
 
-        try {
-            selectStatementCheck = isSelectStatement(sqlText);
-        } catch (Exception e) {
-            selectStatementCheck = false;
+        if (!sqlText.startsWith("declare") && !sqlText.startsWith("begin") && !sqlText.startsWith("if")) {
+            try {
+                selectStatementCheck = isSelectStatement(sqlText);
+            } catch (Exception e) {
+                selectStatementCheck = false;
+            }
+        } else {
+            return SqlStatementType.PL_SQL;
         }
 
         if (selectStatementCheck) {
