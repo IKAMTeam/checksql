@@ -474,7 +474,15 @@ public class CheckSqlExecutor {
         String newSql = new String(sql);
         for (String sqlParam : sqlParams) {
             if (StringUtils.isNotBlank(sqlParam)) {
-                newSql = newSql.replaceAll(":" + sqlParam, "0");
+                if ("V_TABLE".equals(sqlParam) || "TABLE_NAME".equals(sqlParam)) {
+                    newSql = newSql.replaceAll(":" + sqlParam, "xitor");
+                } else if ("V_KEY_FIELD".equals(sqlParam) || "V_DISPLAY_FIELD".equals(sqlParam) || "KEY_FIELD".equals(sqlParam)) {
+                    newSql = newSql.replaceAll(":" + sqlParam, "xitor_id");
+                } else if ("COLUMN_NAME".equals(sqlParam)) {
+                    newSql = newSql.replaceAll(":" + sqlParam, "xitor_key");
+                } else {
+                    newSql = newSql.replaceAll(":" + sqlParam, "0");
+                }
             }
         }
         return newSql;
@@ -548,6 +556,8 @@ public class CheckSqlExecutor {
         sql = sql.replaceAll("\\[DATE_FORMAT\\]", "p");
         sql = sql.replaceAll("\\[COLUMN_NAME\\]", "p");
         sql = sql.replaceAll(":TABLE_NAME", "xitor");
+
+        sql = sql.replaceAll(":\\[ENTITY_ID\\]", "0");
         return sql;
     }
 
