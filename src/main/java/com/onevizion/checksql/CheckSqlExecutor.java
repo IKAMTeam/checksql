@@ -93,7 +93,7 @@ public class CheckSqlExecutor {
     }
 
     public void run(Configuration config) {
-        logger.info(INFO_MARKER, "check-sql " + getClass().getPackage().getImplementationVersion());
+        logger.info(INFO_MARKER, "checksql " + getClass().getPackage().getImplementationVersion());
         this.config = config;
 
         configAppSettings();
@@ -116,7 +116,7 @@ public class CheckSqlExecutor {
         }
 
         logSqlErrors();
-        logger.info(INFO_MARKER, "check-sql completed");
+        logger.info(INFO_MARKER, "checksql completed");
     }
 
     private void configAppSettings() {
@@ -213,7 +213,7 @@ public class CheckSqlExecutor {
             count++;
             tableErrStats.put(tableName, count);
         }
-        logger.info(INFO_MARKER, "========check-sql Summary=========");
+        logger.info(INFO_MARKER, "========checksql Summary=========");
 
         logger.info(INFO_MARKER, "Passed (table name, rows checked):");
         for (String tableName : tableErrStats.keySet()) {
