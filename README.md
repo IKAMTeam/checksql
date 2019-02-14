@@ -16,39 +16,47 @@ Structure of checksql.json file:
 Set DB connection string for source DB schema where SQL statements will be extracted in <remote_owner> parameter, and DB connection string for DB where SQL statements will be tested in <local_owner> parameter. Values may be the same. See examples bellow:
 
 ```
-java -jar check-sql.jar <remote_owner>/<password>@<connect_identifier> [<local_owner>/<password>@<connect_identifier>] [path_to_config_file]
+java -jar checksql.jar <remote_owner>/<password>@<connect_identifier> [<local_owner>/<password>@<connect_identifier>] [path_to_config_file]
 
-java -jar check-sql.jar vqs_p01_epm/****@192.168.56.101:1521:xe vqs_p01_epm/****@192.168.56.101:1521:xe
+java -jar checksql.jar vqs_p01_epm/****@192.168.56.101:1521:xe vqs_p01_epm/****@192.168.56.101:1521:xe
 
-java -jar check-sql.jar vqs_p01_epm/****@192.168.56.101:1521:xe
+java -jar checksql.jar vqs_p01_epm/****@192.168.56.101:1521:xe
 
-java -jar check-sql.jar vqs_p01_epm/****@192.168.56.101:1521:xe /home/test/checksql.json
+java -jar checksql.jar vqs_p01_epm/****@192.168.56.101:1521:xe /home/test/checksql.json
 ```
 
 After start app will print progress, summary and additional information to the standard output. Summary will contain info on each table tested and may look like this:
 ```
-========TABLE STATS========= 
-table=config_field, err-count=14 
-table=excel_orch_mapping, err-count=0 
-table=grid_page_field, err-count=0 
-table=imp_data_map, err-count=2 
-table=imp_data_type, err-count=17 
-table=imp_data_type_param, err-count=19 
-table=imp_entity, err-count=3 
-table=imp_entity_req_field, err-count=0 
-table=imp_spec, err-count=3 
-table=notif, err-count=0 
-table=report_lookup, err-count=11 
-table=report_sql, err-count=0 
-table=rule, err-count=3 
-table=rule_class_param, err-count=0 
-table=rule_class_param_value, err-count=0 
-table=rule_type, err-count=0 
-table=tm_setup, err-count=0 
-table=wf_step, err-count=0 
-table=wf_template_step, err-count=0 
-table=xitor_req_field, err-count=0 
-SQL Checker is completed 
+========checksql Summary========= 
+Passed (table name, rows checked): 
+config_field, 24 
+grid_page_field, 2 
+imp_data_map, 1 
+imp_data_type, 25 
+imp_data_type_param, 62 
+imp_entity, 47 
+imp_entity_req_field, 0 
+imp_spec, 32 
+notif, 5 
+report_lookup, 41 
+report_sql, 87 
+rule, 19 
+rule_class_param, 30 
+rule_class_param_value, 0 
+rule_type, 22 
+tm_setup, 3 
+wf_step, 0 
+wf_template_step, 0 
+
+Failed (table name, errors count): 
+config_field, 14 
+imp_data_map, 1 
+imp_data_type, 15 
+imp_data_type_param, 14 
+imp_entity, 6 
+imp_spec, 3 
+report_lookup, 11 
+rule, 3 
 ```
 
 Also, output duplicated in logs/*_info.log file. 
