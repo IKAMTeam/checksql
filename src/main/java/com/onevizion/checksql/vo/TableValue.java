@@ -1,14 +1,12 @@
 package com.onevizion.checksql.vo;
 
+import org.apache.commons.io.IOUtils;
+import org.springframework.jdbc.support.rowset.SqlRowSet;
+
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.StringWriter;
 import java.sql.Clob;
 import java.sql.SQLException;
 import java.sql.Types;
-
-import org.apache.commons.io.IOUtils;
-import org.springframework.jdbc.support.rowset.SqlRowSet;
 
 public class TableValue<V> {
 
@@ -56,28 +54,16 @@ public class TableValue<V> {
             if (Types.CLOB == colType) {
                 Clob clobObj = (Clob) sqlRowSet.getObject(colNum);
 
-                InputStream in;
                 try {
-                    in = clobObj.getAsciiStream();
-                } catch (SQLException e3) {
+                    strVal = IOUtils.toString(clobObj.getCharacterStream());
+                } catch (SQLException e) {
                     sqlError = new SqlError("Clob2Stream");
-                    sqlError.setErrMsg(e3.getMessage());
-                    in = null;
+                    sqlError.setErrMsg(e.getMessage());
+                } catch (IOException e) {
+                    sqlError = new SqlError("Stream2Writer");
+                    sqlError.setErrMsg(e.getMessage());
                 }
 
-                if (in != null) {
-                    StringWriter w = new StringWriter();
-                    try {
-                        IOUtils.copy(in, w);
-                    } catch (IOException e3) {
-                        sqlError = new SqlError("Stream2Writer");
-                        sqlError.setErrMsg(e3.getMessage());
-                        w = null;
-                    }
-                    if (w != null) {
-                        strVal = w.toString();
-                    }
-                }
             } else {
                 strVal = sqlRowSet.getString(colNum);
             }
