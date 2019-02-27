@@ -19,5 +19,6 @@
   "RULE_TYPE.template_sql",
   {"TM_SETUP.search_sql": "select search_sql from tm_setup where length(search_sql) > 0"},
   "IMP_DATA_TYPE_PARAM.sql_text",
-  {"IMP_ENTITY.sql_text": "select sql_text from imp_entity where dbms_lob.getlength(sql_text) > 0"}
+  {"IMP_ENTITY.sql_text": "select sql_text from imp_entity where dbms_lob.getlength(sql_text) > 0"},
+  "DASHBOARD.sql_text"
 ]
