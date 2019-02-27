@@ -104,14 +104,14 @@ public class CheckSqlExecutor {
                 selectQuery = new SelectQuery(owner1JdbcTemplate, config.getPathToConfigFile());
             }
         } catch (Exception e) {
-            logger.info(INFO_MARKER, "SQL Checker is failed with error\r\n{}", e);
+            logger.info(INFO_MARKER, "checksql is failed with error\r\n{}", e);
             return;
         }
 
         try {
             testSelectAndPlsqlBlockForAllTables();
         } catch (Exception e) {
-            logger.info(INFO_MARKER, "SQL Checker is failed with error\r\n{}", e);
+            logger.info(INFO_MARKER, "checksql is failed with error\r\n{}", e);
             return;
         }
 

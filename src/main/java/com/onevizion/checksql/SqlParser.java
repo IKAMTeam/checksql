@@ -217,7 +217,12 @@ public class SqlParser {
                 st.setString("'0'");
             }
         }
-        return sqlParser.sqlstatements.get(0).toString();
+
+        if (sqlParser.sqlstatements != null && sqlParser.sqlstatements.size() > 0) {
+            return sqlParser.sqlstatements.get(0).toString();
+        } else {
+            return sql;
+        }
     }
 
     public static String removeIntoClause(String sql) {
