@@ -561,6 +561,8 @@ public class CheckSqlExecutor {
         sql = sql.replaceAll(":TABLE_NAME", "xitor");
 
         sql = sql.replaceAll(":\\[ENTITY_ID\\]", "0");
+        sql = sql.replaceAll("\\[USER_ID\\]", "0");
+        sql = sql.replaceAll("\\[PROGRAM_ID\\]", "0");
         return sql;
     }
 
