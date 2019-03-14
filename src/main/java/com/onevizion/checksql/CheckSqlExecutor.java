@@ -114,8 +114,7 @@ public class CheckSqlExecutor {
             logger.info(INFO_MARKER, "checksql is failed with error\r\n{}", e);
             return;
         }
-
-        logSqlErrors();
+        logTableStats();
         logger.info(INFO_MARKER, "checksql completed");
     }
 
@@ -179,14 +178,6 @@ public class CheckSqlExecutor {
         return pid;
     }
 
-    private void logSqlErrors() {
-        if (sqlErrors.isEmpty()) {
-            return;
-        }
-
-        logTableStats();
-    }
-
     private void logTableStats() {
         SortedMap<String, Integer> tableErrStats = new TreeMap<String, Integer>(new Comparator<String>() {
 
@@ -221,10 +212,7 @@ public class CheckSqlExecutor {
             logger.info(INFO_MARKER, tableName + ", " + passedRowCount.toString());
         }
 
-        if (sqlErrors.size() > 0) {
-            logger.error(ERR_MARKER, LINE_DELIMITER + "Failed (table name, errors count):");
-        }
-
+        logger.error(ERR_MARKER, LINE_DELIMITER + "Failed (table name, errors count):");
         for (String tableName : tableErrStats.keySet()) {
             Integer cnt = tableErrStats.get(tableName);
             if(cnt>0) {
@@ -737,7 +725,6 @@ public class CheckSqlExecutor {
     private void testSelectAndPlsqlBlockForAllRows(TableNode sql) throws Exception {
         TableValue<SqlRowSet> entitySqls = getSqlRowSetData(sql);
         if (entitySqls.hasError()) {
-
             return;
         }
 
