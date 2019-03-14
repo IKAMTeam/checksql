@@ -233,7 +233,11 @@ public class CheckSqlExecutor {
             } catch (BadSqlGrammarException e) {
                 sqlErr = new SqlError("CREATE-VIEW2");
                 sqlErr.setErrMsg(e.getMessage());
-                sqlErr.setShortErrMsg(e.getSQLException().toString());
+                if (e.getSQLException().getCause() != null) {
+                    sqlErr.setShortErrMsg(e.getSQLException().getCause().getMessage());
+                } else {
+                    sqlErr.setShortErrMsg(e.getSQLException().toString());
+                }
             } catch (DataAccessException e2) {
                 sqlErr = new SqlError("CREATE-VIEW2");
                 sqlErr.setErrMsg(e2.getMessage());
@@ -245,7 +249,12 @@ public class CheckSqlExecutor {
             } catch (BadSqlGrammarException e) {
                 sqlErr = new SqlError("CREATE-VIEW1");
                 sqlErr.setErrMsg(e.getMessage());
-                sqlErr.setShortErrMsg(e.getSQLException().toString());
+                if (e.getSQLException().getCause() != null) {
+                    sqlErr.setShortErrMsg(e.getSQLException().getCause().getMessage());
+                } else {
+                    sqlErr.setShortErrMsg(e.getSQLException().toString());
+                }
+
             } catch (DataAccessException e) {
                 sqlErr = new SqlError("CREATE-VIEW1");
                 sqlErr.setErrMsg(e.getMessage());
@@ -307,7 +316,11 @@ public class CheckSqlExecutor {
                 procCreated = true;
             } catch (BadSqlGrammarException e) {
                 sqlErr = new SqlError("CREATE-PROC2");
-                sqlErr.setShortErrMsg(e.getSQLException().toString());
+                if (e.getSQLException().getCause() != null) {
+                    sqlErr.setShortErrMsg(e.getSQLException().getCause().getMessage());
+                } else {
+                    sqlErr.setShortErrMsg(e.getSQLException().toString());
+                }
                 sqlErr.setErrMsg(e.getMessage());
             } catch (DataAccessException e2) {
                 sqlErr = new SqlError("CREATE-PROC2");
@@ -319,7 +332,11 @@ public class CheckSqlExecutor {
                 procCreated = true;
             } catch (BadSqlGrammarException e) {
                 sqlErr = new SqlError("CREATE-PROC1");
-                sqlErr.setShortErrMsg(e.getSQLException().toString());
+                if (e.getSQLException().getCause() != null) {
+                    sqlErr.setShortErrMsg(e.getSQLException().getCause().getMessage());
+                } else {
+                    sqlErr.setShortErrMsg(e.getSQLException().toString());
+                }
                 sqlErr.setErrMsg(e.getMessage());
             } catch (DataAccessException e) {
                 sqlErr = new SqlError("CREATE-PROC1");
@@ -562,7 +579,11 @@ public class CheckSqlExecutor {
         } catch (BadSqlGrammarException e) {
             sqlRowSet = null;
             sqlErr = new SqlError(query.getQueryType() + "-ENTITY");
-            sqlErr.setShortErrMsg(e.getSQLException().toString());
+            if (e.getSQLException().getCause() != null) {
+                sqlErr.setShortErrMsg(e.getSQLException().getCause().getMessage());
+            } else {
+                sqlErr.setShortErrMsg(e.getSQLException().toString());
+            }
             sqlErr.setErrMsg(e.getMessage());
         } catch (DataAccessException e1) {
             sqlRowSet = null;
