@@ -19,10 +19,21 @@ public class SqlError {
     private String errType;
     private String originalQuery;
     private String shortErrMsg;
+    private ChecksqlErrorType checksqlErrorType;
 
     private int phase = -1;
     private int table = -1;
     private int row = -1;
+
+    public SqlError(String errType) {
+        this.errType = errType;
+        checksqlErrorType = ChecksqlErrorType.DEFAULT;
+    }
+
+    public SqlError(String errType, ChecksqlErrorType checksqlErrorType) {
+        this.errType = errType;
+        this.checksqlErrorType = checksqlErrorType;
+    }
 
     @Override
     public String toString() {
@@ -129,10 +140,6 @@ public class SqlError {
         this.originalQuery = originalQuery;
     }
 
-    public SqlError(String errType) {
-        this.errType = errType;
-    }
-
     public String getSqlColName() {
         return sqlColName;
     }
@@ -206,6 +213,14 @@ public class SqlError {
         setQuery("[" + getQuery() + "],\r\n[" + sqlError.getQuery() + "]");
         setShortErrMsg(getShortErrMsg() + "\r\n" + sqlError.getShortErrMsg());
         setErrMsg(getErrMsg() + "\r\n" + sqlError.getErrMsg());
+    }
+
+    public ChecksqlErrorType getChecksqlErrorType() {
+        return checksqlErrorType;
+    }
+
+    public void setChecksqlErrorType(ChecksqlErrorType checksqlErrorType) {
+        this.checksqlErrorType = checksqlErrorType;
     }
 
 }

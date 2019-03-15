@@ -81,6 +81,7 @@ public class CheckSqlExecutor {
     public static final String ERROR_MSG = "Invalid value in {}.{} where {} = {}" + LINE_DELIMITER + "{}" + LINE_DELIMITER;
 
     private List<SqlError> sqlErrors;
+    private List<SqlError> configErrors;
 
     private boolean dropView;
     private boolean dropProc;
@@ -89,7 +90,8 @@ public class CheckSqlExecutor {
     private HashMap<String, Long> tableStats = new HashMap<>();
 
     public CheckSqlExecutor() {
-        sqlErrors = new ArrayList<SqlError>();
+        sqlErrors = new ArrayList<>();
+        configErrors = new ArrayList<>();
     }
 
     public void run(Configuration config) {
@@ -219,6 +221,13 @@ public class CheckSqlExecutor {
                 logger.error(ERR_MARKER, tableName + ", " + cnt);
             }
         }
+
+        if (!configErrors.isEmpty()) {
+            logger.error(ERR_MARKER, LINE_DELIMITER + "Invalid Configuration:");
+        }
+        for (SqlError err : configErrors) {
+            logger.error(ERR_MARKER, err.getTableName() + "." + err.getSqlColName());
+        }
     }
 
     private TableValue<Boolean> isSelectStatement(Configuration config, String selectSql) {
@@ -296,13 +305,18 @@ public class CheckSqlExecutor {
 
     private void logFullSqlError(SqlError sqlError) {
         logger.info(DATA_MARKER, "{}", sqlError.toString());
-        sqlErrors.add(sqlError);
     }
 
     private void logSqlError(SqlError sqlError) {
-        logFullSqlError(sqlError);
-        logShortError(sqlError.getTableName(), sqlError.getSqlColName(), sqlError.getEntityIdColName(),
-                sqlError.getEntityId(), sqlError.getShortErrMsg());
+        if (ChecksqlErrorType.DEFAULT.equals(sqlError.getChecksqlErrorType())) {
+            sqlErrors.add(sqlError);
+
+            logFullSqlError(sqlError);
+            logShortError(sqlError.getTableName(), sqlError.getSqlColName(), sqlError.getEntityIdColName(),
+                    sqlError.getEntityId(), sqlError.getShortErrMsg());
+        } else {
+            configErrors.add(sqlError);
+        }
     }
 
     private TableValue<Boolean> isPlsqlBlock(Configuration config, String plsqlBlock) {
@@ -578,18 +592,25 @@ public class CheckSqlExecutor {
             sqlRowSet = owner1JdbcTemplate.queryForRowSet(query.getSql());
         } catch (BadSqlGrammarException e) {
             sqlRowSet = null;
-            sqlErr = new SqlError(query.getQueryType() + "-ENTITY");
+            sqlErr = new SqlError(query.getQueryType() + "-ENTITY", ChecksqlErrorType.CONFIG);
             if (e.getSQLException().getCause() != null) {
                 sqlErr.setShortErrMsg(e.getSQLException().getCause().getMessage());
             } else {
                 sqlErr.setShortErrMsg(e.getSQLException().toString());
             }
             sqlErr.setErrMsg(e.getMessage());
+            sqlErr.setTableName(query.getTableName());
+            sqlErr.setSqlColName(query.getSqlColName());
+            sqlErr.setEntityIdColName(query.getPrimKeyColName());
+            sqlErr.setQuery(query.getSql());
         } catch (DataAccessException e1) {
             sqlRowSet = null;
-            sqlErr = new SqlError(query.getQueryType() + "-ENTITY");
+            sqlErr = new SqlError(query.getQueryType() + "-ENTITY", ChecksqlErrorType.CONFIG);
             sqlErr.setErrMsg(e1.getMessage());
-
+            sqlErr.setTableName(query.getTableName());
+            sqlErr.setSqlColName(query.getSqlColName());
+            sqlErr.setEntityIdColName(query.getPrimKeyColName());
+            sqlErr.setQuery(query.getSql());
         }
         return new TableValue<SqlRowSet>(sqlRowSet, sqlErr);
     }
@@ -745,41 +766,40 @@ public class CheckSqlExecutor {
 
     private void testSelectAndPlsqlBlockForAllRows(TableNode sql) throws Exception {
         TableValue<SqlRowSet> entitySqls = getSqlRowSetData(sql);
-        if (entitySqls.hasError()) {
-            return;
-        }
-
         Long rowCount = 0L;
-        while (entitySqls.getValue().next()) {
-            rowCount++;
-            if (testSqlString(entitySqls.getValue(), sql)) {
+        if (entitySqls.hasError()) {
+            logSqlError(entitySqls.getSqlError());
+        } else {
+            while (entitySqls.getValue().next()) {
+                rowCount++;
+                if (testSqlString(entitySqls.getValue(), sql)) {
 
-                SqlError sqlSelectErr = null;
-                SqlError plSqlBlockErr = null;
+                    SqlError sqlSelectErr = null;
+                    SqlError plSqlBlockErr = null;
 
-                switch (recognizeSelectOrPlSql(entitySqls.getValue(), sql)) {
-                    case SELECT:
-                        sqlSelectErr = testSelectStatementPart(entitySqls.getValue(), sql);
-                        break;
-                    case PL_SQL:
-                        plSqlBlockErr = testPlsqlBlocksPart(entitySqls.getValue(), sql);
-                        break;
-                    case EMPTY:
-                        sqlSelectErr = testSelectStatementPart(entitySqls.getValue(), sql);
-                        plSqlBlockErr = testPlsqlBlocksPart(entitySqls.getValue(), sql);
-                        break;
-                }
+                    switch (recognizeSelectOrPlSql(entitySqls.getValue(), sql)) {
+                        case SELECT:
+                            sqlSelectErr = testSelectStatementPart(entitySqls.getValue(), sql);
+                            break;
+                        case PL_SQL:
+                            plSqlBlockErr = testPlsqlBlocksPart(entitySqls.getValue(), sql);
+                            break;
+                        case EMPTY:
+                            sqlSelectErr = testSelectStatementPart(entitySqls.getValue(), sql);
+                            plSqlBlockErr = testPlsqlBlocksPart(entitySqls.getValue(), sql);
+                            break;
+                    }
 
-                if (sqlSelectErr != null && plSqlBlockErr != null) {
-                    sqlSelectErr.union(plSqlBlockErr);
-                    logSqlError(sqlSelectErr);
-                } else if (sqlSelectErr != null) {
-                    logSqlError(sqlSelectErr);
-                } else if (plSqlBlockErr != null) {
-                    logSqlError(plSqlBlockErr);
+                    if (sqlSelectErr != null && plSqlBlockErr != null) {
+                        sqlSelectErr.union(plSqlBlockErr);
+                        logSqlError(sqlSelectErr);
+                    } else if (sqlSelectErr != null) {
+                        logSqlError(sqlSelectErr);
+                    } else if (plSqlBlockErr != null) {
+                        logSqlError(plSqlBlockErr);
+                    }
                 }
             }
-
         }
 
         tableStats.put(sql.getTableName(), rowCount);
