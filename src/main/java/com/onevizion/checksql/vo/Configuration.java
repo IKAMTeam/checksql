@@ -10,6 +10,7 @@ public class Configuration {
     private String test2DbSchema;
     private String pathToConfigFile;
     private boolean useSecondTest;
+    private String url;
 
     public String getRemoteOwner() {
         return remoteOwner;
@@ -73,6 +74,14 @@ public class Configuration {
 
     public void setPathToConfigFile(String pathToConfigFile) {
         this.pathToConfigFile = pathToConfigFile;
+    }
+
+    public String getUrl() {
+        return url;
+    }
+
+    public void setUrl(String url) {
+        this.url = url;
     }
 
 }

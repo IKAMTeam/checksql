@@ -58,6 +58,7 @@ public class CheckSqlApp {
         String[] owner1DbUrlParts = parseDbCnnStr(configuration.getRemoteOwner());
         configuration.setOwner1DbSchema(owner1DbUrlParts[0]);
         configDataSource((PoolDataSource) ctx.getBean("owner1DataSource"), owner1DbUrlParts, "check-sql_owner1");
+        configuration.setUrl(owner1DbUrlParts[2]);
 
         String[] test1DbUrlParts = parseDbCnnStr(configuration.getRemoteOwner());
         configuration.setTest1DbSchema(test1DbUrlParts[0]);
