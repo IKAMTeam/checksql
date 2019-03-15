@@ -16,6 +16,7 @@ import org.springframework.jdbc.support.rowset.SqlRowSet;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
+import java.text.MessageFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -78,7 +79,10 @@ public class CheckSqlExecutor {
 
     public static final String LINE_DELIMITER = "\r\n";
 
-    public static final String ERROR_MSG = "Invalid value in {}.{} where {} = {}" + LINE_DELIMITER + "{}" + LINE_DELIMITER;
+    private static final String ERROR_MSG = "Invalid value in {}.{} where {} = {}" + LINE_DELIMITER + "{}" + LINE_DELIMITER;
+    private static final String START_MSG = "checksql {} for schema [{}]" + LINE_DELIMITER;
+    private static final String JDBC_THIN_URL_PREFIX = "jdbc:oracle:thin:@";
+    private static final String SUMMARY_MSG = "checksql Summary for schema [{}]";
 
     private List<SqlError> sqlErrors;
     private List<SqlError> configErrors;
@@ -95,7 +99,8 @@ public class CheckSqlExecutor {
     }
 
     public void run(Configuration config) {
-        logger.info(INFO_MARKER, "checksql " + getClass().getPackage().getImplementationVersion());
+        logger.info(INFO_MARKER, START_MSG, getClass().getPackage().getImplementationVersion(),
+                parseUrlToSchemaWithUrlBeforeDot(config.getOwner1DbSchema(), config.getUrl()));
         this.config = config;
 
         configAppSettings();
@@ -206,7 +211,8 @@ public class CheckSqlExecutor {
             count++;
             tableErrStats.put(tableName, count);
         }
-        logger.info(INFO_MARKER, "========checksql Summary=========");
+        logger.info(INFO_MARKER, SUMMARY_MSG,
+                parseUrlToSchemaWithUrlBeforeDot(this.config.getOwner1DbSchema(), this.config.getUrl()));
 
         logger.info(INFO_MARKER, "Passed (table name, rows checked):");
         for (String tableName : tableErrStats.keySet()) {
@@ -871,6 +877,24 @@ public class CheckSqlExecutor {
         String selectSql = new String(entitySql.getValue());
 
         return SqlParser.recognizeSelectStatementAndPlSql(selectSql);
+    }
+
+    private String parseUrlToSchemaWithUrlBeforeDot(String schemaName, String url) {
+        url = url.replaceAll(JDBC_THIN_URL_PREFIX, "");
+        int colonIndex = url.indexOf(':');
+        if (colonIndex != -1) {
+            url = url.substring(0, colonIndex);
+        } else {
+            int slashIndex = url.indexOf('/');
+            url = url.substring(0, slashIndex);
+        }
+
+        int dotIndex = url.indexOf('.');
+        if (dotIndex != -1) {
+            url = url.substring(0, dotIndex);
+        }
+
+        return MessageFormat.format("{0}@{1}", schemaName, url);
     }
 
 }
