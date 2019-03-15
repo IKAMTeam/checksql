@@ -214,7 +214,7 @@ public class CheckSqlExecutor {
             logger.info(INFO_MARKER, tableName + ", " + passedRowCount.toString());
         }
 
-        logger.error(ERR_MARKER, LINE_DELIMITER + "Failed (table name, errors count):");
+        logger.error(ERR_MARKER, LINE_DELIMITER + "Failed (table name, failures count):");
         for (String tableName : tableErrStats.keySet()) {
             Integer cnt = tableErrStats.get(tableName);
             if(cnt>0) {
@@ -228,6 +228,7 @@ public class CheckSqlExecutor {
         for (SqlError err : configErrors) {
             logger.error(ERR_MARKER, err.getTableName() + "." + err.getSqlColName());
         }
+        logger.info(INFO_MARKER, "");
     }
 
     private TableValue<Boolean> isSelectStatement(Configuration config, String selectSql) {
