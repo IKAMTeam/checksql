@@ -83,6 +83,12 @@ public class CheckSqlExecutor {
     private static final String START_MSG = "checksql {} for schema [{}]" + LINE_DELIMITER;
     private static final String JDBC_THIN_URL_PREFIX = "jdbc:oracle:thin:@";
     private static final String SUMMARY_MSG = "checksql Summary for schema [{}]";
+    private static final String BIND_VAR_AND_ASSIGNMENT_OPERATOR_REGEXP = ":((?!:=|;).)*:=(((?!:=|;).)*);";
+
+    private static final String BIND_VAR_REPLACEMENT_START = "declare \n v_checksql varchar2(2000);\n begin\n v_checksql := ";
+    private static final String BIND_VAR_REPLACEMENT_END = ";\n end;";
+    private static final String BIND_VAR_REPLACEMENT_START_IMP_ENTITY = "declare \n v_checksql list_id;\n begin\n v_checksql := ";
+
 
     private List<SqlError> sqlErrors;
     private List<SqlError> configErrors;
@@ -443,6 +449,31 @@ public class CheckSqlExecutor {
         return sql;
     }
 
+    private String replaceBindVarsWithAssignmentOperator(String sql, String tableName) {
+        if ("imp_entity".equalsIgnoreCase(tableName)) {
+            return replaceBindVarsWithAssignmentOperatorImpEntity(sql);
+        } else {
+            return replaceBindVarsWithAssignmentOperator(sql);
+        }
+    }
+
+    private String replaceBindVarsWithAssignmentOperator(String sql) {
+        Matcher m = Pattern.compile(BIND_VAR_AND_ASSIGNMENT_OPERATOR_REGEXP).matcher(sql);
+        while (m.find()) {
+            sql = sql.replaceFirst(m.group(), BIND_VAR_REPLACEMENT_START + m.group(2) + BIND_VAR_REPLACEMENT_END);
+        }
+        return sql;
+    }
+
+    private String replaceBindVarsWithAssignmentOperatorImpEntity(String sql) {
+        Matcher m = Pattern.compile(BIND_VAR_AND_ASSIGNMENT_OPERATOR_REGEXP).matcher(sql);
+        while (m.find()) {
+            sql = sql.replaceFirst(m.group(), BIND_VAR_REPLACEMENT_START_IMP_ENTITY + m.group(2)
+                    + BIND_VAR_REPLACEMENT_END);
+        }
+        return sql;
+    }
+
     private String replaceWfStepParams(String sql) {
         String newSql = new String(sql);
         newSql = newSql.replaceAll("(?i)" + Pattern.quote(":wf_workflow_id"), "0");
@@ -717,6 +748,7 @@ public class CheckSqlExecutor {
         }
 
         String plsqlBlock = wrapBeginEndIfNeed(entityBlock.getValue());
+        plsqlBlock = replaceBindVarsWithAssignmentOperator(plsqlBlock, plsql.getTableName());
         plsqlBlock = removeRowWithValueBindVarIfNeed(plsqlBlock);
         try {
             plsqlBlock = replaceBindVars(plsqlBlock, plsql.getTableName(), plsql.getSqlColName(),
