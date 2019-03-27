@@ -1,7 +1,6 @@
 [
   {"IMP_DATA_MAP.sql_text": "select sql_text from imp_data_map where length(sql_text) > 0"},
   "IMP_DATA_TYPE.sql_text",
-  "IMP_ENTITY.sql_text",
   "IMP_SPEC.external_proc",
   {"RULE.sql_text": "select sql_text from rule where is_enabled = 1"},
   {"RULE_CLASS_PARAM_VALUE.v.value_clob": "select v.value_clob from rule_class_param_value v join rule r on (r.rule_id = v.rule_id) where r.is_enabled = 1"},
