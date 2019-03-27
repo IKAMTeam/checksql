@@ -283,34 +283,39 @@ public class CheckSqlExecutor {
             }
         }
         if (viewCreated) {
+            StringBuilder sbErrors = new StringBuilder();
             if (config.isUseSecondTest()) {
                 SqlRowSet errSqlRowSet = test2JdbcTemplate.queryForRowSet(FIND_DB_OBJECT_ERRORS, SELECT_VIEW_NAME);
-                if (errSqlRowSet.next()) {
+                while (errSqlRowSet.next()) {
                     TableValue<String> errResult = TableValue.createString(errSqlRowSet, "text");
                     if (errResult.hasError()) {
-                        sqlErr = new SqlError("GET-VIEW-ERR2");
-                        sqlErr.setErrMsg(errResult.getSqlError().getErrMsg());
+                        sbErrors.append(errResult.getSqlError().getErrMsg())
+                                .append(LINE_DELIMITER);
                         viewCreated = false;
                     } else {
-                        sqlErr = new SqlError("VIEW-ERR2");
-                        sqlErr.setErrMsg(errResult.getValue());
+                        sbErrors.append(errResult.getValue())
+                                .append(LINE_DELIMITER);
                         viewCreated = false;
                     }
                 }
             } else {
                 SqlRowSet errSqlRowSet = test1JdbcTemplate.queryForRowSet(FIND_DB_OBJECT_ERRORS, SELECT_VIEW_NAME);
-                if (errSqlRowSet.next()) {
+                while (errSqlRowSet.next()) {
                     TableValue<String> errResult = TableValue.createString(errSqlRowSet, "text");
                     if (errResult.hasError()) {
-                        sqlErr = new SqlError("GET-VIEW-ERR1");
-                        sqlErr.setErrMsg(errResult.getSqlError().getErrMsg());
+                        sbErrors.append(errResult.getSqlError().getErrMsg())
+                                .append(LINE_DELIMITER);
                         viewCreated = false;
                     } else {
-                        sqlErr = new SqlError("VIEW-ERR1");
-                        sqlErr.setErrMsg(errResult.getValue());
+                        sbErrors.append(errResult.getValue())
+                                .append(LINE_DELIMITER);
                         viewCreated = false;
                     }
                 }
+            }
+            if(!viewCreated) {
+                sqlErr = new SqlError("VIEW-ERR");
+                sqlErr.setErrMsg(sbErrors.toString().trim());
             }
         }
         return new TableValue<Boolean>(viewCreated, sqlErr);
@@ -371,35 +376,42 @@ public class CheckSqlExecutor {
             }
         }
 
+
         if (procCreated) {
+            StringBuilder sbErrors = new StringBuilder();
             if (config.isUseSecondTest()) {
                 SqlRowSet errSqlRowSet = test2JdbcTemplate.queryForRowSet(FIND_DB_OBJECT_ERRORS, PLSQL_PROC_NAME);
-                if (errSqlRowSet.next()) {
+                while (errSqlRowSet.next()) {
                     TableValue<String> errResult = TableValue.createString(errSqlRowSet, "text");
                     if (errResult.hasError()) {
-                        sqlErr = new SqlError("GET-PROC-ERR2");
-                        sqlErr.setErrMsg(errResult.getSqlError().getErrMsg());
+                        sbErrors.append(errResult.getSqlError().getErrMsg())
+                                .append(LINE_DELIMITER);
                         procCreated = false;
                     } else {
-                        sqlErr = new SqlError("PROC-ERR2");
-                        sqlErr.setErrMsg(errResult.getValue());
+                        sbErrors.append(errResult.getValue())
+                                .append(LINE_DELIMITER);
                         procCreated = false;
                     }
                 }
+
             } else {
                 SqlRowSet errSqlRowSet = test1JdbcTemplate.queryForRowSet(FIND_DB_OBJECT_ERRORS, PLSQL_PROC_NAME);
-                if (errSqlRowSet.next()) {
+                while (errSqlRowSet.next()) {
                     TableValue<String> errResult = TableValue.createString(errSqlRowSet, "text");
                     if (errResult.hasError()) {
-                        sqlErr = new SqlError("GET-PROC-ERR1");
-                        sqlErr.setErrMsg(errResult.getSqlError().getErrMsg());
+                        sbErrors.append(errResult.getSqlError().getErrMsg())
+                                .append(LINE_DELIMITER);
                         procCreated = false;
                     } else {
-                        sqlErr = new SqlError("PROC-ERR1");
-                        sqlErr.setErrMsg(errResult.getValue());
+                        sbErrors.append(errResult.getValue())
+                                .append(LINE_DELIMITER);
                         procCreated = false;
                     }
                 }
+            }
+            if(!procCreated) {
+                sqlErr = new SqlError("PROC-ERR");
+                sqlErr.setErrMsg(sbErrors.toString().trim());
             }
         }
         return new TableValue<Boolean>(procCreated, sqlErr);
