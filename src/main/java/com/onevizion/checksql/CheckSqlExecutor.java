@@ -62,6 +62,7 @@ public class CheckSqlExecutor {
     private static final String DROP_SELECT_VIEW = "drop view " + SELECT_VIEW_NAME;
 
     private static final String VALUE_BIND_VAR = ":VALUE";
+    private static final String VALUE_BIND_VAR_RSTR = ":RETURN_STR";
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -83,11 +84,9 @@ public class CheckSqlExecutor {
     private static final String START_MSG = "checksql {} for schema [{}]" + LINE_DELIMITER;
     private static final String JDBC_THIN_URL_PREFIX = "jdbc:oracle:thin:@";
     private static final String SUMMARY_MSG = "checksql Summary for schema [{}]";
-    private static final String BIND_VAR_AND_ASSIGNMENT_OPERATOR_REGEXP = ":((?!:=|;).)*:=(((?!:=|;).)*);";
-
-    private static final String BIND_VAR_REPLACEMENT_START = "declare \n v_checksql varchar2(2000);\n begin\n v_checksql := ";
-    private static final String BIND_VAR_REPLACEMENT_END = ";\n end;";
-    private static final String BIND_VAR_REPLACEMENT_START_IMP_ENTITY = "declare \n v_checksql list_id;\n begin\n v_checksql := ";
+    private static final String BIND_VAR_AND_ASSIGNMENT_OPERATOR_REGEXP = ":((?!:=|;).)*:=";
+    private static final String BIND_VAR_REPLACEMENT = "v_ret_str :=";
+    private static final String BIND_VAR_REPLACEMENT_IMP_ENTITY = "v_imp_entity :=";
 
 
     private List<SqlError> sqlErrors;
@@ -337,8 +336,8 @@ public class CheckSqlExecutor {
         }
     }
 
-    private TableValue<Boolean> isPlsqlBlock(Configuration config, String plsqlBlock) {
-        String procDdl = wrapBlockAsProc(plsqlBlock);
+    private TableValue<Boolean> isPlsqlBlock(Configuration config, String plsqlBlock, String tableName) {
+        String procDdl = wrapBlockAsProc(plsqlBlock, tableName);
 
         boolean procCreated = false;
         SqlError sqlErr = null;
@@ -447,6 +446,7 @@ public class CheckSqlExecutor {
             sql = replaceImpDataTypeParamByImpDataTypeId(sql, entityId);
             sql = replaceStaticImpDataTypeParam(sql);
         } else if ("imp_entity".equalsIgnoreCase(tableName)) {
+            sql = replaceImpEntityVars(sql);
             sql = replaceImpEntityParamsByEntityId(sql, entityId);
         } else if ("imp_spec".equalsIgnoreCase(tableName)) {
             sql = replaceImpSpecExtProcParams(sql);
@@ -454,6 +454,10 @@ public class CheckSqlExecutor {
             sql = replaceRuleParams(sql, entityId);
         } else if ("wf_template_step".equalsIgnoreCase(tableName) || "wf_step".equalsIgnoreCase(tableName)) {
             sql = replaceWfStepParams(sql);
+        } else if ("imp_data_map".equalsIgnoreCase(tableName)) {
+            sql = replaceImpDataMapVars(sql);
+        } else if ("config_field".equalsIgnoreCase(tableName)) {
+            sql = replaceConfigFieldVars(sql);
         }
 
         sql = replaceDateBindVars(sql);
@@ -461,29 +465,30 @@ public class CheckSqlExecutor {
         return sql;
     }
 
+    private String replaceImpEntityVars(String sql) {
+        sql = sql.replaceAll(VALUE_BIND_VAR, "v_imp_entity");
+        sql = sql.replaceAll(VALUE_BIND_VAR.toLowerCase(), "v_imp_entity");
+        return sql;
+    }
+
+    private String replaceConfigFieldVars(String sql) {
+        sql = sql.replaceAll(VALUE_BIND_VAR_RSTR, "v_ret_str");
+        sql = sql.replaceAll(VALUE_BIND_VAR_RSTR.toLowerCase(), "v_ret_str");
+        return sql;
+    }
+
+    private String replaceImpDataMapVars(String sql) {
+        sql = sql.replaceAll(VALUE_BIND_VAR, "v_ret_str");
+        sql = sql.replaceAll(VALUE_BIND_VAR.toLowerCase(), "v_ret_str");
+        return sql;
+    }
+
     private String replaceBindVarsWithAssignmentOperator(String sql, String tableName) {
         if ("imp_entity".equalsIgnoreCase(tableName)) {
-            return replaceBindVarsWithAssignmentOperatorImpEntity(sql);
+            return sql.replaceAll(BIND_VAR_AND_ASSIGNMENT_OPERATOR_REGEXP, BIND_VAR_REPLACEMENT_IMP_ENTITY);
         } else {
-            return replaceBindVarsWithAssignmentOperator(sql);
+            return sql.replaceAll(BIND_VAR_AND_ASSIGNMENT_OPERATOR_REGEXP, BIND_VAR_REPLACEMENT);
         }
-    }
-
-    private String replaceBindVarsWithAssignmentOperator(String sql) {
-        Matcher m = Pattern.compile(BIND_VAR_AND_ASSIGNMENT_OPERATOR_REGEXP).matcher(sql);
-        while (m.find()) {
-            sql = sql.replaceFirst(m.group(), BIND_VAR_REPLACEMENT_START + m.group(2) + BIND_VAR_REPLACEMENT_END);
-        }
-        return sql;
-    }
-
-    private String replaceBindVarsWithAssignmentOperatorImpEntity(String sql) {
-        Matcher m = Pattern.compile(BIND_VAR_AND_ASSIGNMENT_OPERATOR_REGEXP).matcher(sql);
-        while (m.find()) {
-            sql = sql.replaceFirst(m.group(), BIND_VAR_REPLACEMENT_START_IMP_ENTITY + m.group(2)
-                    + BIND_VAR_REPLACEMENT_END);
-        }
-        return sql;
     }
 
     private String replaceWfStepParams(String sql) {
@@ -580,10 +585,14 @@ public class CheckSqlExecutor {
         return !isSelectStatement(val);
     }
 
-    private String wrapBlockAsProc(String entityBlock) {
+    private String wrapBlockAsProc(String entityBlock, String tableName) {
         StringBuilder ddl = new StringBuilder("create or replace procedure ");
         ddl.append(PLSQL_PROC_NAME);
-        ddl.append(" as\r\n v_ret_str varchar2(1000);\r\nbegin\r\n");
+        if ("imp_entity".equalsIgnoreCase(tableName)) {
+            ddl.append(" as\r\n v_imp_entity list_id;\r\nbegin\r\n");
+        } else {
+            ddl.append(" as\r\n v_ret_str varchar2(1000);\r\nbegin\r\n");
+        }
         ddl.append(entityBlock);
         ddl.append("\r\nend ");
         ddl.append(PLSQL_PROC_NAME);
@@ -780,7 +789,7 @@ public class CheckSqlExecutor {
             return err;
         }
 
-        TableValue<Boolean> plsqlBlockResult = isPlsqlBlock(config, plsqlBlock);
+        TableValue<Boolean> plsqlBlockResult = isPlsqlBlock(config, plsqlBlock, plsql.getTableName());
         dropProc = true;
         if (plsqlBlockResult.hasError()) {
             plsqlBlockResult.getSqlError().setTableName(plsql.getTableName());
