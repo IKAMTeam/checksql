@@ -63,12 +63,50 @@ public class TableValue<V> {
                     sqlError = new SqlError("Stream2Writer");
                     sqlError.setErrMsg(e.getMessage());
                 }
-
             } else {
                 strVal = sqlRowSet.getString(colNum);
             }
+
         }
-        return new TableValue<String>(strVal, sqlError);
+        return new TableValue<>(strVal, sqlError);
+    }
+
+    public static TableValue<String> createStringErr(SqlRowSet sqlRowSet, boolean isPlSqlBlock) {
+        StringBuilder strVal = new StringBuilder();
+        SqlError sqlError = null;
+        for (int colNum = 1; colNum <= sqlRowSet.getMetaData().getColumnCount(); colNum++) {
+            if ("line".equalsIgnoreCase(sqlRowSet.getMetaData().getColumnName(colNum))) {
+                strVal.append(", line ");
+                Integer line = sqlRowSet.getInt(colNum);
+                if (isPlSqlBlock) {
+                    line -= 3;
+                } else {
+                    line -= 1;
+                }
+                strVal.append(line.toString());
+                continue;
+            }
+
+            int colType = sqlRowSet.getMetaData().getColumnType(colNum);
+
+            if (Types.CLOB == colType) {
+                Clob clobObj = (Clob) sqlRowSet.getObject(colNum);
+
+                try {
+                    strVal.append(IOUtils.toString(clobObj.getCharacterStream()));
+                } catch (SQLException e) {
+                    sqlError = new SqlError("Clob2Stream");
+                    sqlError.setErrMsg(e.getMessage());
+                } catch (IOException e) {
+                    sqlError = new SqlError("Stream2Writer");
+                    sqlError.setErrMsg(e.getMessage());
+                }
+            } else {
+                strVal.append(sqlRowSet.getString(colNum));
+            }
+
+        }
+        return new TableValue<>(strVal.toString(), sqlError);
     }
 
     public boolean hasError() {
