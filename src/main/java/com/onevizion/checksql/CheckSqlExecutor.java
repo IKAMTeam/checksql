@@ -51,7 +51,7 @@ public class CheckSqlExecutor {
 
     private static final String FIND_IMP_ENTITY_PARAM_SQL_PARAM_BY_ENTITY_ID = "select sql_parameter from imp_entity_param where imp_entity_id = ?";
 
-    private static final String FIND_DB_OBJECT_ERRORS = "select text from all_errors where name = ? and type = 'PROCEDURE'";
+    private static final String FIND_DB_OBJECT_ERRORS = "select text, line from all_errors where name = ? and type = 'PROCEDURE'";
 
     private static final String PLSQL_PROC_NAME = "CHECKSQL_PLSQL";
 
@@ -286,7 +286,7 @@ public class CheckSqlExecutor {
             if (config.isUseSecondTest()) {
                 SqlRowSet errSqlRowSet = test2JdbcTemplate.queryForRowSet(FIND_DB_OBJECT_ERRORS, SELECT_VIEW_NAME);
                 while (errSqlRowSet.next()) {
-                    TableValue<String> errResult = TableValue.createString(errSqlRowSet, "text");
+                    TableValue<String> errResult = TableValue.createStringErr(errSqlRowSet, false);
                     if (errResult.hasError()) {
                         sbErrors.append(errResult.getSqlError().getErrMsg())
                                 .append(LINE_DELIMITER);
@@ -300,7 +300,7 @@ public class CheckSqlExecutor {
             } else {
                 SqlRowSet errSqlRowSet = test1JdbcTemplate.queryForRowSet(FIND_DB_OBJECT_ERRORS, SELECT_VIEW_NAME);
                 while (errSqlRowSet.next()) {
-                    TableValue<String> errResult = TableValue.createString(errSqlRowSet, "text");
+                    TableValue<String> errResult = TableValue.createStringErr(errSqlRowSet, false);
                     if (errResult.hasError()) {
                         sbErrors.append(errResult.getSqlError().getErrMsg())
                                 .append(LINE_DELIMITER);
@@ -381,7 +381,7 @@ public class CheckSqlExecutor {
             if (config.isUseSecondTest()) {
                 SqlRowSet errSqlRowSet = test2JdbcTemplate.queryForRowSet(FIND_DB_OBJECT_ERRORS, PLSQL_PROC_NAME);
                 while (errSqlRowSet.next()) {
-                    TableValue<String> errResult = TableValue.createString(errSqlRowSet, "text");
+                    TableValue<String> errResult = TableValue.createStringErr(errSqlRowSet, true);
                     if (errResult.hasError()) {
                         sbErrors.append(errResult.getSqlError().getErrMsg())
                                 .append(LINE_DELIMITER);
@@ -396,7 +396,7 @@ public class CheckSqlExecutor {
             } else {
                 SqlRowSet errSqlRowSet = test1JdbcTemplate.queryForRowSet(FIND_DB_OBJECT_ERRORS, PLSQL_PROC_NAME);
                 while (errSqlRowSet.next()) {
-                    TableValue<String> errResult = TableValue.createString(errSqlRowSet, "text");
+                    TableValue<String> errResult = TableValue.createStringErr(errSqlRowSet, true);
                     if (errResult.hasError()) {
                         sbErrors.append(errResult.getSqlError().getErrMsg())
                                 .append(LINE_DELIMITER);
