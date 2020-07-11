@@ -9,3 +9,4 @@
 .recommenders
 /.gradle/
 /logs
+*.code-workspace
