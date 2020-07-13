@@ -1,3 +1,4 @@
+
 package com.onevizion.checksql.support;
 
 import java.sql.Connection;
@@ -5,9 +6,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
 
-import javax.annotation.Resource;
-
 import org.springframework.beans.factory.BeanCreationException;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import com.onevizion.checksql.exception.UnexpectedException;
 import com.onevizion.checksql.vo.AppSettings;
@@ -16,7 +16,7 @@ import oracle.ucp.jdbc.LabelableConnection;
 
 public class ConnectionLabelingCallback implements oracle.ucp.jdbc.ConnectionLabelingCallback {
 
-    @Resource
+    @Autowired
     private AppSettings appSettings;
 
     @Override

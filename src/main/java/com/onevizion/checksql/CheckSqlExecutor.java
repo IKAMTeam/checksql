@@ -14,8 +14,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 
-import javax.annotation.Resource;
 import java.text.MessageFormat;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -24,25 +24,25 @@ import java.util.regex.Pattern;
 @Component
 public class CheckSqlExecutor {
 
-    @Resource(name = "owner1JdbcTemplate")
+    @Autowired
     private JdbcTemplate owner1JdbcTemplate;
 
-    @Resource(name = "owner2JdbcTemplate")
+    @Autowired
     private JdbcTemplate owner2JdbcTemplate;
 
-    @Resource(name = "test1JdbcTemplate")
+    @Autowired
     private JdbcTemplate test1JdbcTemplate;
 
-    @Resource(name = "test1NamedParamJdbcTemplate")
+    @Autowired
     private NamedParameterJdbcTemplate test1NamedParamJdbcTemplate;
 
-    @Resource(name = "test2JdbcTemplate")
+    @Autowired
     private JdbcTemplate test2JdbcTemplate;
 
-    @Resource(name = "test2NamedParamJdbcTemplate")
+    @Autowired
     private NamedParameterJdbcTemplate test2NamedParamJdbcTemplate;
 
-    @Resource
+    @Autowired
     private AppSettings appSettings;
 
     private static final String FIND_IMP_DATA_TYPE_PARAM_SQL_PARAM_BY_IMP_DATA_TYPE_ID = "select sql_parameter from imp_data_type_param where imp_data_type_id = ?";
